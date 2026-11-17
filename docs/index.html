@@ -56,7 +56,31 @@ input[type=range] { width: 260px; }
         <option value="10">Medium</option>
         <option value="20">Long</option>
     </select>
-    <button id="generate">Generate Motion</button>
+
+<div id="apiConnection" style="margin:12px 0; display:grid; gap:10px;">
+    <label style="display:block;">
+        Backend URL
+        <input
+            id="apiBase"
+            type="url"
+            placeholder="https://your-tunnel.trycloudflare.com"
+            style="width:100%; box-sizing:border-box;"
+            autocomplete="off"
+        />
+    </label>
+
+    <label style="display:block;">
+        API Key
+        <input
+            id="apiKey"
+            type="password"
+            placeholder="Enter your DART API key"
+            style="width:100%; box-sizing:border-box;"
+            autocomplete="off"
+        />
+    </label>
+</div>
+<button id="generate">Generate Motion</button>
     <span id="status">Ready</span>
 </div>
 <div id="viewer"></div>
@@ -238,16 +262,30 @@ generateButton.onclick = async () => {
         return;
     }
 
+
+    const apiBase = document.getElementById("apiBase")
+        .value.trim().replace(/\/+$/, "");
+
+    const apiKey = document.getElementById("apiKey")
+        .value.trim();
+
+    if (!apiBase.startsWith("https://")) {
+        statusLabel.textContent = "Enter your HTTPS backend URL.";
+        return;
+    }
+
+    if (!apiKey) {
+        statusLabel.textContent = "Enter your API key.";
+        return;
+    }
+
     generateButton.disabled = true;
     statusLabel.textContent = "Generating motion...";
 
     try {
-        throw new Error(
-            "Live generation is not configured yet. The sample animation is available."
-        );
-        const response = await fetch("/generate", {
+        const response = await fetch(`${apiBase}/generate`, {
             method: "POST",
-            headers: {"Content-Type": "application/json"},
+            headers: {"Content-Type": "application/json", "X-API-Key": apiKey},
             body: JSON.stringify({prompt, repetitions})
         });
 
