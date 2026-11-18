@@ -99,6 +99,33 @@ input[type=range] { width: 260px; }
         <option value="human">Human</option>
     </select>
 </label>
+
+<label style="display:inline-flex; align-items:center; gap:7px;">
+    Rigged Human
+    <input
+        type="file"
+        id="humanFBX"
+        accept=".fbx"
+        style="max-width:190px;"
+    >
+</label>
+
+<label style="display:inline-flex;align-items:center;gap:7px;">
+    Ground Height
+    <input
+        id="humanGroundOffset"
+        type="range"
+        min="-1.00"
+        max="0.50"
+        step="0.02"
+        value="-1"
+    >
+    <span id="humanGroundValue">-1.00 m</span>
+</label>
+
+<span id="humanRigStatus" style="font-size:12px;">
+    Select your Mixamo human FBX
+</span>
 <button id="play">Pause</button>
 
     <label>Frame <input type="range" id="frame" min="0" value="0"></label>
@@ -122,6 +149,7 @@ input[type=range] { width: 260px; }
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 
 const container = document.getElementById("viewer");
 const scene = new THREE.Scene();
@@ -284,6 +312,349 @@ function createAvatar(style) {
 const robotAvatar = createAvatar("robot");
 const humanAvatar = createAvatar("human");
 
+
+// ==========================================
+// LIVE MIXAMO HUMAN RETARGETING — V94
+// Based on the calibrated human preview:
+// Facing 0°, strength 65%, arms + legs
+// ==========================================
+
+let liveHuman = null;
+let liveHumanBones = new Map();
+let liveHumanRest = new Map();
+let liveHumanWorldRest = new Map();
+let liveHumanBase = new THREE.Vector3();
+let liveHumanScale = 1;
+
+const humanRigStatus =
+    document.getElementById("humanRigStatus");
+
+const humanStrength = 0.65;
+const humanMaxAngle = THREE.MathUtils.degToRad(30);
+
+const humanSegments = {
+    leftarm:      [16, 18],
+    leftforearm:  [18, 20],
+    rightarm:     [17, 19],
+    rightforearm: [19, 21],
+    leftupleg:    [1, 4],
+    leftleg:      [4, 7],
+    rightupleg:   [2, 5],
+    rightleg:     [5, 8]
+};
+
+const humanParentSegments = {
+    leftforearm: "leftarm",
+    rightforearm: "rightarm",
+    leftleg: "leftupleg",
+    rightleg: "rightupleg"
+};
+
+function humanBoneName(obj) {
+    return String(obj.name || "")
+        .replace(/^.*mixamorig[:_]?/i, "")
+        .replace(/[^a-z0-9]/gi, "")
+        .toLowerCase();
+}
+
+// DART Z-up -> Three.js Y-up
+function humanConvert(point) {
+    return new THREE.Vector3(
+        point[0], point[2], point[1]
+    );
+}
+
+function humanSegmentDelta(name, first, current) {
+    const pair = humanSegments[name];
+
+    if (!pair) return new THREE.Quaternion();
+
+    const [a, b] = pair;
+
+    const start = first[b].clone().sub(first[a]);
+    const end = current[b].clone().sub(current[a]);
+
+    if (
+        start.lengthSq() < 1e-8 ||
+        end.lengthSq() < 1e-8
+    ) {
+        return new THREE.Quaternion();
+    }
+
+    return new THREE.Quaternion().setFromUnitVectors(
+        start.normalize(),
+        end.normalize()
+    );
+}
+
+function updateLiveHuman(jointData) {
+    if (!liveHuman || !motion || !motion.joints.length) {
+        return;
+    }
+
+    const first = motion.joints[0].map(humanConvert);
+    const current = jointData.map(humanConvert);
+
+    // Restore original local pose every frame.
+    for (const [bone, rotation] of liveHumanRest) {
+        bone.quaternion.copy(rotation);
+    }
+
+    // Follow the DART root trajectory.
+    liveHuman.position.copy(liveHumanBase).add(
+        current[0].clone()
+            .sub(first[0])
+            .multiplyScalar(liveHumanScale)
+    );
+
+    // HUMAN_GROUND_FIX_V95
+    // Additional adjustment without changing bone animation.
+    const groundOffset = Number(
+        document.getElementById("humanGroundOffset").value
+    );
+
+    liveHuman.position.y += groundOffset;
+
+    liveHuman.updateMatrixWorld(true);
+
+    const deltas = {};
+
+    for (const name of Object.keys(humanSegments)) {
+        deltas[name] = humanSegmentDelta(
+            name, first, current
+        );
+    }
+
+    for (const name of Object.keys(humanSegments)) {
+        const bone = liveHumanBones.get(name);
+
+        if (!bone) continue;
+
+        const rest = liveHumanRest.get(bone);
+
+        if (!rest) continue;
+
+        let delta = deltas[name].clone();
+
+        // Remove the motion already represented by
+        // the parent segment at elbows and knees.
+        const parentName = humanParentSegments[name];
+
+        if (parentName) {
+            delta = deltas[parentName]
+                .clone()
+                .invert()
+                .multiply(delta);
+        }
+
+        // Apply the settings tested in our preview.
+        const angle = delta.angleTo(
+            new THREE.Quaternion()
+        );
+
+        const fraction = angle > 1e-6
+            ? Math.min(1, humanMaxAngle / angle)
+            : 1;
+
+        const limited = new THREE.Quaternion()
+            .slerp(
+                delta,
+                fraction * humanStrength
+            );
+
+        const parentRest =
+            liveHumanWorldRest.get(bone.parent) ||
+            new THREE.Quaternion();
+
+        const localDelta = parentRest.clone()
+            .invert()
+            .multiply(limited)
+            .multiply(parentRest);
+
+        bone.quaternion.copy(rest);
+        bone.quaternion.premultiply(localDelta);
+    }
+
+    liveHuman.updateMatrixWorld(true);
+}
+
+document.getElementById("humanFBX")
+    .addEventListener("change", async event => {
+
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    humanRigStatus.textContent = "Loading human rig...";
+
+    try {
+        const buffer = await file.arrayBuffer();
+        const loader = new FBXLoader();
+
+        // Load from browser memory, not a public URL.
+        const character = loader.parse(buffer, "");
+
+        const bounds = new THREE.Box3()
+            .setFromObject(character);
+
+        const height = bounds.getSize(
+            new THREE.Vector3()
+        ).y;
+
+        if (!Number.isFinite(height) || height < 0.001) {
+            throw new Error("Invalid character dimensions.");
+        }
+
+        character.scale.multiplyScalar(1.75 / height);
+
+        // Calibration from Step 93: 0° facing.
+        character.rotation.y = 0;
+        character.updateMatrixWorld(true);
+
+        const normalized = new THREE.Box3()
+            .setFromObject(character);
+
+        const center = normalized.getCenter(
+            new THREE.Vector3()
+        );
+
+        character.position.set(
+            -center.x,
+            -normalized.min.y,
+            -center.z
+        );
+
+        character.updateMatrixWorld(true);
+
+        const bones = new Map();
+        const rest = new Map();
+        const worldRest = new Map();
+
+        character.traverse(part => {
+            if (part.isBone) {
+                bones.set(humanBoneName(part), part);
+                rest.set(part, part.quaternion.clone());
+                worldRest.set(
+                    part,
+                    part.getWorldQuaternion(
+                        new THREE.Quaternion()
+                    )
+                );
+            }
+        });
+
+        const required = [
+            "hips",
+            "leftarm", "leftforearm",
+            "rightarm", "rightforearm",
+            "leftupleg", "leftleg",
+            "rightupleg", "rightleg"
+        ];
+
+        const missing = required.filter(
+            name => !bones.has(name)
+        );
+
+        if (missing.length) {
+            throw new Error(
+                "Missing Mixamo bones: " +
+                missing.join(", ")
+            );
+        }
+
+        // Only replace the previous model after
+        // successfully validating the new one.
+        if (liveHuman) {
+            scene.remove(liveHuman);
+        }
+
+        liveHuman = character;
+        liveHumanBones = bones;
+        liveHumanRest = rest;
+        liveHumanWorldRest = worldRest;
+        liveHumanBase = character.position.clone();
+
+        scene.add(liveHuman);
+
+        // Match the normalized model height to DART.
+        if (motion && motion.joints.length) {
+            const first = motion.joints[0].map(
+                humanConvert
+            );
+
+            const ys = first.map(p => p.y);
+            const dartHeight =
+                Math.max(...ys) - Math.min(...ys);
+
+            liveHumanScale =
+                1.75 / Math.max(dartHeight, 0.1);
+        }
+
+        // Select the rigged human automatically.
+        avatarSelect.value = "human";
+
+        // DART data is Z-up.
+        axis.value = "z";
+
+        liveHuman.visible = true;
+
+        if (motion && motion.joints.length) {
+            // First apply DART's initial pose.
+            const previousFrame = frame;
+
+            drawFrame(0);
+
+            // Find the lowest point of the animated mesh.
+            // The precise bounding box accounts for skinned vertices.
+            const groundedBounds = new THREE.Box3()
+                .setFromObject(liveHuman, true);
+
+            if (
+                !groundedBounds.isEmpty() &&
+                Number.isFinite(groundedBounds.min.y)
+            ) {
+                // Move the lowest point onto the floor at Y=0.
+                liveHumanBase.y -= groundedBounds.min.y;
+            }
+
+            // Return to the frame the viewer was displaying.
+            drawFrame(previousFrame);
+        } else {
+            jointsGroup.visible = false;
+            robotAvatar.group.visible = false;
+            humanAvatar.group.visible = false;
+        }
+
+        humanRigStatus.textContent =
+            "Rigged human ready — 0° / 65%";
+
+    } catch (error) {
+        console.error(error);
+        humanRigStatus.textContent =
+            "Error: " + error.message;
+    }
+});
+
+
+document.getElementById("humanGroundOffset")
+    .addEventListener("input", event => {
+
+    const value = Number(event.target.value);
+
+    document.getElementById("humanGroundValue")
+        .textContent = value.toFixed(2) + " m";
+
+    if (motion && liveHuman) {
+        drawFrame(frame);
+    }
+});
+
+// ==========================================
+// END LIVE HUMAN RETARGETING
+// ==========================================
+
+
+
 const upDirection = new THREE.Vector3(0, 1, 0);
 
 function positionSegment(mesh, a, b, thickness) {
@@ -342,6 +713,19 @@ function updateAvatar(avatar, points) {
 
 function updateAvatarMeshes(jointData) {
     const mode = avatarSelect.value;
+
+    // Use the real Mixamo character when available.
+    if (mode === "human" && liveHuman) {
+        jointsGroup.visible = false;
+        robotAvatar.group.visible = false;
+        humanAvatar.group.visible = false;
+
+        liveHuman.visible = true;
+        updateLiveHuman(jointData);
+        return;
+    }
+
+    if (liveHuman) liveHuman.visible = false;
 
     jointsGroup.visible = mode === "skeleton";
     robotAvatar.group.visible = mode === "robot";
