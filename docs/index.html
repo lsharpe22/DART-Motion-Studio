@@ -90,7 +90,17 @@ input[type=range] { width: 260px; }
 <div id="viewer"></div>
 
 <div class="controls">
-    <button id="play">Pause</button>
+
+<label style="display:inline-flex; align-items:center; gap:8px;">
+    Appearance
+    <select id="avatarMode">
+        <option value="skeleton">Skeleton</option>
+        <option value="robot">Robot</option>
+        <option value="human">Human</option>
+    </select>
+</label>
+<button id="play">Pause</button>
+
     <label>Frame <input type="range" id="frame" min="0" value="0"></label>
     <span id="counter"></span>
     <label>Up axis
@@ -175,6 +185,188 @@ const lines = bones.map(() => {
     return line;
 });
 
+
+// ==========================================
+// DART MOTION STUDIO - AVATAR SYSTEM
+// ==========================================
+
+const avatarSelect = document.getElementById("avatarMode");
+
+function createAvatar(style) {
+    const group = new THREE.Group();
+    scene.add(group);
+
+    const robot = style === "robot";
+
+    const material = new THREE.MeshStandardMaterial({
+        color: robot ? 0x91a7b9 : 0xd9c9b7,
+        metalness: robot ? 0.75 : 0.05,
+        roughness: robot ? 0.3 : 0.85
+    });
+
+    const jointMaterial = new THREE.MeshStandardMaterial({
+        color: robot ? 0xf2a365 : 0xd9c9b7,
+        metalness: robot ? 0.45 : 0.05,
+        roughness: 0.5
+    });
+
+    const geometry = robot
+        ? new THREE.BoxGeometry(1, 1, 1)
+        : new THREE.CylinderGeometry(1, 1, 1, 16);
+
+    const links = bones.map(() => {
+        const mesh = new THREE.Mesh(geometry, material);
+        group.add(mesh);
+        return mesh;
+    });
+
+    const markers = [];
+
+    for (let i = 0; i < 22; i++) {
+        const marker = new THREE.Mesh(
+            new THREE.SphereGeometry(
+                robot ? 0.058 : 0.055, 14, 10
+            ),
+            jointMaterial
+        );
+
+        group.add(marker);
+        markers.push(marker);
+    }
+
+    // Add a solid torso for a more recognizable body.
+    const torso = new THREE.Mesh(
+        robot
+            ? new THREE.BoxGeometry(1, 1, 1)
+            : new THREE.SphereGeometry(1, 20, 14),
+        material
+    );
+
+    group.add(torso);
+
+    // Separate head shape.
+    const head = new THREE.Mesh(
+        robot
+            ? new THREE.BoxGeometry(0.19, 0.22, 0.19)
+            : new THREE.SphereGeometry(0.11, 20, 14),
+        material
+    );
+
+    group.add(head);
+
+    if (robot) {
+        // Simple glowing visor on the robot's face.
+        const visor = new THREE.Mesh(
+            new THREE.BoxGeometry(0.145, 0.045, 0.012),
+            new THREE.MeshStandardMaterial({
+                color: 0x56d9f0,
+                emissive: 0x167a97,
+                emissiveIntensity: 0.7
+            })
+        );
+
+        visor.position.set(0, 0.025, 0.102);
+        head.add(visor);
+    }
+
+    group.visible = false;
+
+    return {
+        group,
+        links,
+        markers,
+        torso,
+        head,
+        robot
+    };
+}
+
+const robotAvatar = createAvatar("robot");
+const humanAvatar = createAvatar("human");
+
+const upDirection = new THREE.Vector3(0, 1, 0);
+
+function positionSegment(mesh, a, b, thickness) {
+    const direction = new THREE.Vector3().subVectors(b, a);
+    const length = Math.max(direction.length(), 0.001);
+
+    mesh.position.copy(a).add(b).multiplyScalar(0.5);
+
+    mesh.quaternion.setFromUnitVectors(
+        upDirection,
+        direction.normalize()
+    );
+
+    mesh.scale.set(thickness, length, thickness);
+}
+
+function updateAvatar(avatar, points) {
+    bones.forEach(([a, b], i) => {
+        // Wider upper legs and upper arms.
+        const thick = i < 12 ? 0.085 : 0.065;
+
+        positionSegment(
+            avatar.links[i],
+            points[a],
+            points[b],
+            avatar.robot ? thick * 1.2 : thick
+        );
+    });
+
+    points.forEach((point, i) => {
+        avatar.markers[i].position.copy(point);
+    });
+
+    // Solid torso from pelvis (0) to neck (12).
+    const pelvis = points[0];
+    const neck = points[12];
+
+    positionSegment(
+        avatar.torso,
+        pelvis,
+        neck,
+        1
+    );
+
+    const torsoLength = pelvis.distanceTo(neck);
+
+    avatar.torso.scale.set(
+        avatar.robot ? 0.34 : 0.20,
+        torsoLength * (avatar.robot ? 0.82 : 0.58),
+        avatar.robot ? 0.19 : 0.14
+    );
+
+    // SMPL-style joint 15 corresponds to the head.
+    avatar.head.position.copy(points[15]);
+}
+
+function updateAvatarMeshes(jointData) {
+    const mode = avatarSelect.value;
+
+    jointsGroup.visible = mode === "skeleton";
+    robotAvatar.group.visible = mode === "robot";
+    humanAvatar.group.visible = mode === "human";
+
+    if (mode === "skeleton") return;
+
+    const points = jointData.map(convert);
+
+    updateAvatar(
+        mode === "robot" ? robotAvatar : humanAvatar,
+        points
+    );
+}
+
+avatarSelect.addEventListener("change", () => {
+    if (motion && motion.joints.length) {
+        drawFrame(frame);
+    }
+});
+
+// ==========================================
+// END AVATAR SYSTEM
+// ==========================================
+
 let motion = null;
 let frame = 0;
 let playing = true;
@@ -193,7 +385,12 @@ function convert(point) {
 
 function drawFrame(index) {
     if (!motion) return;
+
     const joints = motion.joints[index];
+
+    // Update selected avatar using the current DART joints.
+    updateAvatarMeshes(joints);
+
 
     joints.forEach((point, i) => {
         spheres[i].position.copy(convert(point));
