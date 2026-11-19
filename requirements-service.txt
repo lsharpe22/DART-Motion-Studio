@@ -1,0 +1,4 @@
+# Additional packages for the student HTTP service, not the full DART environment.
+# Install upstream DART dependencies first from its official environment.yml.
+fastapi==0.115.6
+uvicorn==0.30.6

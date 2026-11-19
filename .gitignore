@@ -1,13 +1,28 @@
-__pycache__/
-*.pyc
-.ipynb_checkpoints/
+# Secrets and private configuration
 .env
-*.log
-outputs/
-*.pkl
-*.npz
+.env.*
+*.key
+.dart_api_key
+*api_key*
+# Model weights, body models, caches and data outputs
 *.pt
 *.pth
+*.ckpt
+*.pkl
+*.npz
+*.npy
+*.fbx
 *.tar.gz
+*.zip
+__pycache__/
+*.py[cod]
+*.log
+.venv/
 venv/
-.dart-env/
+dart-env/
+body_models/
+model_weights/
+checkpoints/
+outputs/
+# Keep any approved sample data under explicitly reviewed source control paths only
+.DS_Store
