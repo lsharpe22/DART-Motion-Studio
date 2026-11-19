@@ -878,6 +878,73 @@ function humanSegmentDelta(name, first, current) {
     );
 }
 
+
+// ==========================================
+// HUMAN_GROUND_V113
+// Shared DART ground reference.
+// DART uses Z-up; the Three.js floor uses Y.
+// ==========================================
+
+function getDartGroundHeight(motionData) {
+    const first = motionData?.joints?.[0];
+
+    if (!Array.isArray(first)) {
+        return -1.0;
+    }
+
+    // SMPL-style ankles and feet.
+    const footIndices = [7, 8, 10, 11];
+
+    const heights = footIndices
+        .map(i => first[i])
+        .filter(p =>
+            Array.isArray(p) &&
+            p.length >= 3 &&
+            Number.isFinite(p[2])
+        )
+        .map(p => p[2]);
+
+    if (!heights.length) {
+        return -1.0;
+    }
+
+    return Math.min(...heights) - 0.02;
+}
+
+// Ground only the initial pose.
+// Do NOT ground every frame: that would remove jumps.
+function alignRiggedHumanToFloor() {
+    if (
+        !liveHuman ||
+        !motion ||
+        !motion.joints?.length ||
+        avatarSelect.value !== "human"
+    ) {
+        return;
+    }
+
+    drawFrame(0);
+
+    const bounds = new THREE.Box3()
+        .setFromObject(liveHuman, true);
+
+    if (
+        !bounds.isEmpty() &&
+        Number.isFinite(bounds.min.y)
+    ) {
+        const correction =
+            grid.position.y - bounds.min.y;
+
+        liveHumanBase.y += correction;
+    }
+
+    drawFrame(0);
+}
+
+// ==========================================
+// END HUMAN_GROUND_V113
+// ==========================================
+
 function updateLiveHuman(jointData) {
     if (!liveHuman || !motion || !motion.joints.length) {
         return;
@@ -1105,7 +1172,7 @@ document.getElementById("humanFBX")
                 Number.isFinite(groundedBounds.min.y)
             ) {
                 // Move the lowest point onto the floor at Y=0.
-                liveHumanBase.y -= groundedBounds.min.y;
+                liveHumanBase.y += grid.position.y - groundedBounds.min.y;
             }
 
             // Return to the frame the viewer was displaying.
@@ -1318,7 +1385,8 @@ async function loadMotion() {
     }
 
     // Place the grid just below the lowest joint.
-    grid.position.y = minHeight - 0.02;
+    grid.position.y = getDartGroundHeight(motion);
+    alignRiggedHumanToFloor();
 
     drawFrame(0);
 }
@@ -1396,7 +1464,8 @@ generateButton.onclick = async () => {
                 minHeight = Math.min(minHeight, convert(joint).y);
             }
         }
-        grid.position.y = minHeight - 0.02;
+        grid.position.y = getDartGroundHeight(motion);
+        alignRiggedHumanToFloor();
 
         drawFrame(0);
 
@@ -1518,7 +1587,8 @@ continueButton.onclick = async () => {
             }
         }
 
-        grid.position.y = minHeight - 0.02;
+        // Keep the existing floor during continuation.
+        // Changing the floor here causes visible floating.
 
         // Resume from the join, not the beginning.
         frame = previousFrameCount - 1;
