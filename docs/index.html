@@ -37,106 +37,597 @@ button, select {
     font-weight: bold;
 }
 input[type=range] { width: 260px; }
+
+/* DART STUDIO REDESIGN V109 */
+:root {
+    --bg: #0b1424;
+    --panel: #15243a;
+    --panel-soft: #1b2d46;
+    --border: #30465f;
+    --text: #e9f0fa;
+    --muted: #9cacc3;
+    --accent: #d99a68;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, Arial, sans-serif;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 28px;
+    background: #101d30;
+    border-bottom: 1px solid var(--border);
+}
+
+.brand { display: flex; align-items: center; gap: 13px; }
+.brand-icon {
+    width: 42px; height: 42px;
+    display: grid; place-items: center;
+    background: #34435b;
+    color: var(--accent);
+    border-radius: 12px;
+    font-size: 24px;
+    font-weight: 800;
+}
+.brand-title { font-weight: 750; font-size: 18px; }
+.brand-subtitle { color: var(--muted); font-size: 11px; }
+.topnav { display: flex; gap: 8px; }
+
+.nav-button {
+    background: transparent;
+    color: #b9c8da;
+    padding: 11px 17px;
+    border-radius: 9px;
+}
+.nav-button.active {
+    background: #293b53;
+    color: white;
+}
+
+.page { max-width: 1480px; margin: auto; padding: 28px; }
+.page-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 22px;
+}
+.page-heading h1 { margin: 0; font-size: 27px; color: white; }
+.page-heading p { margin: 7px 0 0; }
+.connection-pill {
+    border: 1px solid var(--border);
+    color: #b5c7dc;
+    padding: 8px 12px;
+    border-radius: 30px;
+    font-size: 12px;
+}
+
+.workbench {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 20px;
+    align-items: start;
+}
+
+.viewer-card,
+.creation-panel,
+.settings-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.section-top {
+    padding: 19px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 12px;
+}
+.small { font-size: 12px; }
+.muted { color: var(--muted); }
+.mini-tag {
+    background: #263d56;
+    color: #9cbcd6;
+    padding: 6px 9px;
+    border-radius: 6px;
+    font-size: 11px;
+}
+
+#viewer {
+    width: 100%;
+    height: min(67vh, 720px);
+    min-height: 450px;
+    background: #091321;
+}
+#viewer canvas { display: block; }
+
+.playback-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    flex-wrap: wrap;
+}
+.timeline-label {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex: 1;
+    min-width: 170px;
+}
+#frame { width: 100%; }
+
+.creation-panel { padding: 18px; }
+.creation-panel .section-top { padding: 0 0 21px; }
+.field-label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin: 18px 0 9px;
+}
+
+.page input[type=text],
+.page input[type=url],
+.page input[type=password],
+.page textarea,
+.page select {
+    width: 100%;
+    background: #0e1d30;
+    border: 1px solid #3b506a;
+    border-radius: 9px;
+    color: var(--text);
+    font: inherit;
+    padding: 11px;
+}
+.page textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+.page input[type=file] {
+    max-width: 100%;
+    color: var(--muted);
+}
+.page input[type=checkbox] { accent-color: var(--accent); }
+.page input[type=range] { accent-color: var(--accent); }
+
+.example-prompts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 10px 0 20px;
+}
+.prompt-chip {
+    padding: 6px 10px;
+    border-radius: 20px;
+    background: #2a415b;
+    color: #d6e4f3;
+    font-size: 11px;
+}
+
+.toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px;
+    margin: 13px 0;
+    background: var(--panel-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 13px;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: #17202d;
+}
+.btn-secondary {
+    background: #304760;
+    color: #f0f5fc;
+}
+.btn-danger {
+    background: #533d46;
+    color: #f7d9df;
+}
+.btn-wide { width: 100%; padding: 14px; }
+.action-row { display: flex; gap: 9px; margin-top: 10px; }
+.action-row button { flex: 1; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+
+.generation-status {
+    background: #0e1e30;
+    border: 1px solid var(--border);
+    padding: 13px;
+    border-radius: 10px;
+    display: grid;
+    gap: 8px;
+    margin-top: 20px;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+.text-link {
+    background: transparent;
+    color: #9fc1df;
+    padding: 10px 0;
+    margin-top: 12px;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+.settings-card { padding: 24px; }
+.settings-card h3 { margin: 0 0 7px; }
+.settings-card .action-row button { flex: 1; }
+.settings-card > .btn-secondary { margin-top: 12px; }
+
+@media (max-width: 980px) {
+    .workbench { grid-template-columns: 1fr; }
+    .settings-grid { grid-template-columns: 1fr; }
+    #viewer { height: 55vh; min-height: 350px; }
+}
+@media (max-width: 600px) {
+    .topbar { padding: 12px; }
+    .brand-subtitle { display: none; }
+    .page { padding: 14px; }
+    .page-heading { flex-wrap: wrap; }
+    .settings-card { padding: 17px; }
+}
+
+
+/* STUDIO_PREFERENCES_V110 */
+input[type=file]::file-selector-button {
+    background: #304760;
+    color: #f0f5fc;
+    border: 1px solid #425d78;
+    border-radius: 7px;
+    padding: 9px 13px;
+    margin-right: 12px;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    filter: brightness(1.12);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid #d99a68;
+    outline-offset: 2px;
+}
+
 </style>
 </head>
+
 <body>
-<header>
-    <h2>DART Motion Studio</h2>
-    <p id="prompt">Loading motion...</p>
+<!-- STUDIO_LAYOUT_V109 -->
+
+<header class="topbar">
+    <div class="brand">
+        <div class="brand-icon">D</div>
+        <div>
+            <div class="brand-title">DART Motion Studio</div>
+            <div class="brand-subtitle">
+                Interactive AI Motion Generation
+            </div>
+        </div>
+    </div>
+
+    <nav class="topnav" aria-label="Main navigation">
+        <button class="nav-button active"
+                data-view="studio" type="button">
+            Studio
+        </button>
+        <button class="nav-button"
+                data-view="settings" type="button">
+            ⚙ Settings
+        </button>
+    </nav>
 </header>
 
-<div class="controls">
-    <input id="promptInput"
-           type="text"
-           value="walk forward"
-           placeholder="Describe a motion"
-           style="padding:10px; min-width:280px;">
-    <select id="repetitions">
-        <option value="5">Short</option>
-        <option value="10">Medium</option>
-        <option value="20">Long</option>
-    </select>
+<main id="studioView" class="page">
 
-<div id="apiConnection" style="margin:12px 0; display:grid; gap:10px;">
-    <label style="display:block;">
-        Backend URL
-        <input
-            id="apiBase"
-            type="url"
-            placeholder="https://your-tunnel.trycloudflare.com"
-            style="width:100%; box-sizing:border-box;"
-            autocomplete="off"
-        />
-    </label>
+    <div class="page-heading">
+        <div>
+            <h1>Motion Studio</h1>
+            <p>
+                Turn text prompts into continuous,
+                interactive character movement.
+            </p>
+        </div>
+        <span id="connectionPill" class="connection-pill">
+            Configure backend in Settings
+        </span>
+    </div>
 
-    <label style="display:block;">
-        API Key
-        <input
-            id="apiKey"
-            type="password"
-            placeholder="Enter your DART API key"
-            style="width:100%; box-sizing:border-box;"
-            autocomplete="off"
-        />
-    </label>
-</div>
-<button id="generate">Generate Motion</button>
-<button id="continueMotion" type="button" disabled>
-    Continue Motion
-</button>
+    <div class="workbench">
 
-    <span id="status">Ready</span>
-</div>
-<div id="viewer"></div>
+        <section class="viewer-card">
+            <div class="section-top">
+                <div>
+                    <strong>3D Motion Preview</strong>
+                    <div class="muted small" id="prompt">
+                        Loading motion...
+                    </div>
+                </div>
+                <span class="mini-tag">30 FPS</span>
+            </div>
 
-<div class="controls">
+            <div id="viewer"></div>
 
-<label style="display:inline-flex; align-items:center; gap:8px;">
-    Appearance
-    <select id="avatarMode">
-        <option value="skeleton">Skeleton</option>
-        <option value="robot">Robot</option>
-        <option value="human">Human</option>
-    </select>
-</label>
+            <div class="playback-toolbar">
+                <button id="play" type="button"
+                        class="btn-secondary">
+                    Pause
+                </button>
 
-<label style="display:inline-flex; align-items:center; gap:7px;">
-    Rigged Human
-    <input
-        type="file"
-        id="humanFBX"
-        accept=".fbx"
-        style="max-width:190px;"
-    >
-</label>
+                <label class="timeline-label">
+                    Frame
+                    <input type="range" id="frame"
+                           min="0" value="0">
+                </label>
 
-<label style="display:inline-flex;align-items:center;gap:7px;">
-    Ground Height
-    <input
-        id="humanGroundOffset"
-        type="range"
-        min="-1.00"
-        max="0.50"
-        step="0.02"
-        value="-1"
-    >
-    <span id="humanGroundValue">-1.00 m</span>
-</label>
+                <span id="counter" class="muted small"></span>
+            </div>
+        </section>
 
-<span id="humanRigStatus" style="font-size:12px;">
-    Select your Mixamo human FBX
-</span>
-<button id="play">Pause</button>
+        <aside class="creation-panel">
 
-    <label>Frame <input type="range" id="frame" min="0" value="0"></label>
-    <span id="counter"></span>
-    <label>Up axis
-        <select id="axis">
-            <option value="z">Z up</option>
-            <option value="y">Y up</option>
-        </select>
-    </label>
-</div>
+            <div class="section-top">
+                <div>
+                    <strong>Create Motion</strong>
+                    <div class="muted small">
+                        Describe what your character should do.
+                    </div>
+                </div>
+            </div>
+
+            <label class="field-label" for="promptInput">
+                Motion prompt
+            </label>
+            <textarea id="promptInput"
+                      rows="4"
+                      placeholder="Walk forward, turn left, wave..."
+            >walk forward</textarea>
+
+            <div class="example-prompts">
+                <span class="muted small">Try:</span>
+                <button type="button"
+                    class="prompt-chip"
+                    data-prompt="walk forward">
+                    Walk
+                </button>
+                <button type="button"
+                    class="prompt-chip"
+                    data-prompt="jump up">
+                    Jump
+                </button>
+                <button type="button"
+                    class="prompt-chip"
+                    data-prompt="wave both arms">
+                    Wave
+                </button>
+            </div>
+
+            <label class="toggle-row">
+                <div>
+                    <strong>Continuous Mode</strong>
+                    <div class="muted small">
+                        Keep generating new motion automatically.
+                    </div>
+                </div>
+                <input type="checkbox" id="continuousMode" checked>
+            </label>
+
+            <button id="generate" type="button"
+                    class="btn-primary btn-wide">
+                Start Motion
+            </button>
+
+            <div class="action-row">
+                <button id="continueMotion"
+                        type="button"
+                        class="btn-secondary"
+                        disabled>
+                    Continue Motion
+                </button>
+
+                <button id="continuousStop"
+                        type="button"
+                        class="btn-danger"
+                        disabled>
+                    Stop
+                </button>
+            </div>
+
+            <div class="generation-status">
+                <strong>Generation status</strong>
+                <div id="status" class="muted small">Ready</div>
+                <div id="continuousStatus" class="muted small">
+                    Continuous Mode is off
+                </div>
+            </div>
+
+            <button data-view="settings" type="button"
+                    class="text-link">
+                Configure backend and character
+            </button>
+
+        </aside>
+    </div>
+</main>
+
+<main id="settingsView" class="page" hidden>
+    <div class="page-heading">
+        <div>
+            <h1>Settings</h1>
+            <p>
+                Manage the backend, character models,
+                and generation preferences.
+            </p>
+        </div>
+
+        <button data-view="studio"
+                type="button"
+                class="btn-secondary">
+            Back to Studio
+        </button>
+    </div>
+
+    <div class="settings-grid">
+
+        <section class="settings-card" id="apiConnection">
+            <h3>Backend Connection</h3>
+            <p class="muted small">
+                Connect to your DART GPU worker.
+                These values are never added to GitHub.
+            </p>
+
+            <label class="field-label" for="apiBase">
+                Backend URL
+            </label>
+            <input id="apiBase"
+                   type="url"
+                   placeholder="https://your-backend.example.com"
+                   autocomplete="off">
+
+            <label class="field-label" for="apiKey">
+                API Key
+            </label>
+            <input id="apiKey"
+                   type="password"
+                   autocomplete="off"
+                   placeholder="Enter your DART API key">
+
+            <div class="action-row">
+                <button type="button" id="testBackend"
+                        class="btn-secondary">
+                    Test Connection
+                </button>
+                <button type="button" id="toggleApiKey"
+                        class="btn-secondary">
+                    Show Key
+                </button>
+            </div>
+
+            <div id="backendTestResult" class="muted small">
+                Not tested
+            </div>
+        </section>
+
+        <section class="settings-card">
+            <h3>Character Appearance</h3>
+            <p class="muted small">
+                Select how DART motion is visualized.
+            </p>
+
+            <label class="field-label" for="avatarMode">
+                Appearance
+            </label>
+            <select id="avatarMode">
+                <option value="skeleton">Skeleton</option>
+                <option value="robot">Robot</option>
+                <option value="human">Human</option>
+            </select>
+
+            <label class="field-label" for="humanFBX">
+                Rigged Human Model (.fbx)
+            </label>
+            <input id="humanFBX" type="file"
+                   accept=".fbx">
+
+            <div id="humanRigStatus" class="muted small">
+                No rigged human uploaded yet.
+            </div>
+
+            <div id="modelSaveStatus"
+                 class="muted small"
+                 style="margin-top:12px;">
+                Your model is stored locally in this browser.
+            </div>
+
+            <button id="forgetHuman"
+                    type="button"
+                    class="btn-secondary"
+                    style="margin-top:12px;">
+                Forget Saved Human Model
+            </button>
+        </section>
+
+        <section class="settings-card">
+            <h3>Generation Preferences</h3>
+
+            <label class="field-label" for="repetitions">
+                Manual motion length
+            </label>
+            <select id="repetitions">
+                <option value="5">Short — 5 primitives</option>
+                <option value="10">Medium — 10 primitives</option>
+                <option value="20">Long — 20 primitives</option>
+            </select>
+
+            <label class="toggle-row">
+                <span>Follow character with camera</span>
+                <input type="checkbox"
+                       id="continuousFollow" checked>
+            </label>
+
+            <button type="button"
+                    id="continuousSample"
+                    class="btn-secondary">
+                Test Sample Loop
+            </button>
+
+            <p class="muted small">
+                Sample Loop works without a GPU.
+            </p>
+        </section>
+
+        <section class="settings-card">
+            <h3>Advanced Viewer Settings</h3>
+
+            <label class="field-label" for="axis">
+                Motion coordinate system
+            </label>
+            <select id="axis">
+                <option value="z">Z up — DART default</option>
+                <option value="y">Y up</option>
+            </select>
+
+            <label class="field-label"
+                   for="humanGroundOffset">
+                Human ground offset
+            </label>
+            <input id="humanGroundOffset"
+                   type="range"
+                   min="-1.00" max="0.50"
+                   step="0.02" value="-1">
+
+            <div class="muted small" id="humanGroundValue">
+                -1.00 m
+            </div>
+
+            <button id="clearBrowserSettings"
+                    type="button"
+                    class="btn-secondary">
+                Clear Saved Connection
+            </button>
+        </section>
+    </div>
+</main>
 
 <script type="importmap">
 {
@@ -1057,10 +1548,596 @@ continueButton.onclick = async () => {
     }
 };
 
+
+// ==================================================
+// LIVE_CONTINUOUS_V98
+// Buffered automatic DART continuation.
+//
+// Playback always has a clip to display. When DART
+// needs time to generate, the viewer repeats the
+// current clip with translation alignment and blending.
+// ==================================================
+
+const continuousCheckbox =
+    document.getElementById("continuousMode");
+
+const continuousSampleButton =
+    document.getElementById("continuousSample");
+
+const continuousStopButton =
+    document.getElementById("continuousStop");
+
+const continuousFollow =
+    document.getElementById("continuousFollow");
+
+const continuousStatus =
+    document.getElementById("continuousStatus");
+
+const originalGenerateAction = generateButton.onclick;
+const originalGenerateLabel = generateButton.textContent;
+
+let live = {
+    active: false,
+    online: false,
+    fetching: false,
+    epoch: 0,
+    clip: null,
+    position: 0,
+    offset: [0, 0, 0],
+    last: null,
+    seam: null,
+    ready: [],
+    nextPrompt: "",
+    totalFrames: 0,
+    repeats: 0,
+    fps: 30,
+    cameraRoot: null,
+    lastAction: ""
+};
+
+function copyPose(pose) {
+    return pose.map(joint => [...joint]);
+}
+
+function alignedPose(raw, offset) {
+    return raw.map(joint => [
+        joint[0] + offset[0],
+        joint[1] + offset[1],
+        joint[2] + offset[2]
+    ]);
+}
+
+function blendedPose(from, to, alpha) {
+    return to.map((joint, i) => joint.map(
+        (value, k) =>
+            from[i][k] * (1 - alpha) +
+            value * alpha
+    ));
+}
+
+function startLiveClip(clip) {
+    if (!clip || !Array.isArray(clip.frames)
+              || clip.frames.length === 0) {
+        return;
+    }
+
+    if (live.last) {
+        // Match the root position at the transition.
+        live.offset = [0, 1, 2].map(k =>
+            live.last[0][k] - clip.frames[0][0][k]
+        );
+
+        live.seam = copyPose(live.last);
+    } else {
+        live.offset = [0, 0, 0];
+        live.seam = null;
+    }
+
+    live.clip = clip;
+    live.position = 0;
+    live.lastAction = clip.prompt;
+}
+
+function renderLivePose(points) {
+    if (!motion) return;
+
+    // Use the same avatar system as the main viewer.
+    updateAvatarMeshes(points);
+
+    points.forEach((point, i) => {
+        spheres[i].position.copy(convert(point));
+    });
+
+    bones.forEach(([a, b], i) => {
+        const attribute =
+            lines[i].geometry.attributes.position;
+
+        const p1 = convert(points[a]);
+        const p2 = convert(points[b]);
+
+        attribute.setXYZ(0, p1.x, p1.y, p1.z);
+        attribute.setXYZ(1, p2.x, p2.y, p2.z);
+        attribute.needsUpdate = true;
+    });
+
+    // Move the camera with the character during walking.
+    const root = convert(points[0]);
+
+    if (continuousFollow.checked) {
+        if (live.cameraRoot) {
+            const dx = root.x - live.cameraRoot.x;
+            const dz = root.z - live.cameraRoot.z;
+
+            camera.position.x += dx;
+            camera.position.z += dz;
+            controls.target.x += dx;
+            controls.target.z += dz;
+        }
+
+        grid.position.x = root.x;
+        grid.position.z = root.z;
+    }
+
+    live.cameraRoot = root;
+
+    counter.textContent =
+        "Played: " + live.totalFrames +
+        " | New DART: " + (live.freshSegments || 0) +
+        " | Fallback cycles: " + live.repeats +
+        " | Skipped old: " + (live.staleSegments || 0);
+}
+
+function advanceLive() {
+    if (!live.active || !live.clip) return;
+
+    if (live.position >= live.clip.frames.length) {
+        const nextClip = live.ready.length
+            ? live.ready.shift()
+            : live.clip;
+
+        if (nextClip === live.clip) {
+            live.repeats += 1;
+        }
+
+        startLiveClip(nextClip);
+
+        // Request another segment when the queue has room.
+        if (live.online && !live.fetching &&
+            live.ready.length === 0) {
+            requestLiveContinuation();
+        }
+    }
+
+    const index = live.position;
+
+    let pose = alignedPose(
+        live.clip.frames[index],
+        live.offset
+    );
+
+    // Blend the first ten frames of every new clip.
+    // This reduces pose discontinuities at loop boundaries.
+    const blendCount = Math.min(
+        10, live.clip.frames.length
+    );
+
+    if (live.seam && index < blendCount) {
+        const alpha = (index + 1) / blendCount;
+        pose = blendedPose(live.seam, pose, alpha);
+    }
+
+    renderLivePose(pose);
+
+    live.last = copyPose(pose);
+    live.position += 1;
+    live.totalFrames += 1;
+}
+
+function stopLive(message = "Continuous Mode stopped.") {
+    live.epoch += 1;
+    live.active = false;
+    live.online = false;
+    live.ready = [];
+    live.fetching = false;
+    live.cameraRoot = null;
+
+    continuousCheckbox.checked = false;
+    continuousStopButton.disabled = true;
+    slider.disabled = false;
+
+    generateButton.textContent = originalGenerateLabel;
+
+    // An in-flight continuation may still finish on the
+    // server. Start a fresh session before manual requests.
+    motionSessionId = null;
+    continueButton.disabled = true;
+
+    continuousStatus.textContent = message;
+}
+
+function startLive(frames, prompt, online = false) {
+    if (!frames || frames.length === 0) {
+        continuousStatus.textContent =
+            "No motion frames available.";
+        return;
+    }
+
+    const epoch = live.epoch + 1;
+
+    live = {
+        active: true,
+        online,
+        fetching: false,
+        epoch,
+        clip: null,
+        position: 0,
+        offset: [0, 0, 0],
+        last: null,
+        seam: null,
+        ready: [],
+        nextPrompt: prompt,
+        totalFrames: 0,
+        repeats: 0,
+        fps: Number(motion.fps) || 30,
+        cameraRoot: null,
+        lastAction: prompt,
+        changeRevision: 0,
+        staleSegments: 0
+    };
+
+    // DART outputs Z-up coordinates.
+    axis.value = "z";
+
+    continuousCheckbox.checked = true;
+    continuousStopButton.disabled = false;
+
+    slider.disabled = true;
+    continueButton.disabled = true;
+
+    generateButton.textContent =
+        online ? "Change Action" : originalGenerateLabel;
+
+    playing = true;
+    lastFrameTime = performance.now();
+
+    document.getElementById("play").textContent =
+        "Pause";
+
+    startLiveClip({
+        frames,
+        prompt
+    });
+
+    advanceLive();
+
+    continuousStatus.textContent = online
+        ? "Live: generating future motion..."
+        : "Sample loop: repeating buffered movement";
+
+    if (online) {
+        requestLiveContinuation();
+    }
+}
+
+async function requestLiveContinuation() {
+    if (!live.active || !live.online ||
+        live.fetching || live.ready.length ||
+        !motionSessionId) {
+        return;
+    }
+
+    const epoch = live.epoch;
+    const prompt = live.nextPrompt;
+    const revision = live.changeRevision || 0;
+    const sessionId = motionSessionId;
+
+    const apiBase = document.getElementById("apiBase")
+        .value.trim().replace(/\/+$/, "");
+
+    const apiKey = document.getElementById("apiKey")
+        .value.trim();
+
+    if (!apiKey || apiBase !== motionSessionBase) {
+        live.online = false;
+        continuousStatus.textContent =
+            "Backend credentials changed. Looping saved motion.";
+        return;
+    }
+
+    live.fetching = true;
+
+    continuousStatus.textContent =
+        'Generating "' + prompt +
+        '" in background; playback continues...';
+
+    try {
+        // Longer fresh DART segments: 20 * 8 + 2 frames.
+        // Short segments make new prompts more responsive.
+        const repetitions = 8;
+
+        const response = await fetch(
+            apiBase + "/continue",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-API-Key": apiKey
+                },
+                body: JSON.stringify({
+                    prompt,
+                    repetitions,
+                    session_id: sessionId
+                })
+            }
+        );
+
+        if (!response.ok) {
+            const detail = await response.text();
+            throw new Error(
+                "HTTP " + response.status +
+                ": " + detail.slice(0, 180)
+            );
+        }
+
+        const result = await response.json();
+
+        // Ignore responses belonging to a stopped
+        // or replaced continuous session.
+        if (!live.active || live.epoch !== epoch) {
+            return;
+        }
+
+        if (
+            result.session_id !== motionSessionId ||
+            !result.continued ||
+            !Array.isArray(result.joints) ||
+            !result.joints.length
+        ) {
+            throw new Error(
+                "Unexpected continuation response."
+            );
+        }
+
+        // PRIORITY_SWITCH_V107
+        // The server has completed this request and advanced
+        // its motion state, but the user may now want a
+        // different action. Do not enqueue obsolete motion.
+        if (
+            (live.changeRevision || 0) !== revision ||
+            prompt !== live.nextPrompt
+        ) {
+            live.staleSegments =
+                (live.staleSegments || 0) + 1;
+
+            continuousStatus.textContent =
+                'Skipping old "' + prompt +
+                '" motion. Preparing "' +
+                live.nextPrompt + '"...';
+
+            return;
+        }
+
+        live.ready.push({
+            frames: result.joints,
+            prompt
+        });
+
+        live.freshSegments = (live.freshSegments || 0) + 1;
+
+        console.log(
+            "Fresh DART segment #" + live.freshSegments,
+            "Frames:", result.joints.length,
+            "Prompt:", prompt
+        );
+
+        continuousStatus.textContent =
+            'New "' + prompt +
+            '" motion ready — transitioning at clip boundary.';
+
+    } catch (error) {
+        console.error(error);
+
+        if (live.epoch === epoch) {
+            if ((live.changeRevision || 0) !== revision) {
+                // Old request failed after a new prompt arrived.
+                // Give the new command its own attempt.
+                continuousStatus.textContent =
+                    'Retrying latest action: "' +
+                    live.nextPrompt + '"';
+            } else {
+                live.online = false;
+                continuousStatus.textContent =
+                    "Generation unavailable. Continuing to " +
+                    "loop existing motion. " + error.message;
+            }
+        }
+    } finally {
+        if (live.epoch === epoch) {
+            live.fetching = false;
+
+            // An older request finished while the user was
+            // selecting a new action. Start the new one now.
+            if (
+                live.active &&
+                live.online &&
+                (live.changeRevision || 0) !== revision
+            ) {
+                requestLiveContinuation();
+            }
+        }
+    }
+}
+
+// Use the sample animation to verify playback
+// even when Colab's preview origin cannot call the API.
+continuousSampleButton.onclick = () => {
+    if (!motion || !Array.isArray(motion.joints)) {
+        continuousStatus.textContent =
+            "Sample motion is not loaded yet.";
+        return;
+    }
+
+    stopLive();
+    startLive(
+        motion.joints.map(copyPose),
+        motion.prompt || "Sample motion",
+        false
+    );
+};
+
+continuousStopButton.onclick = () => {
+    stopLive();
+};
+
+continuousCheckbox.onchange = () => {
+    if (!continuousCheckbox.checked) {
+        if (live.active) stopLive();
+        return;
+    }
+
+    continuousStatus.textContent =
+        "Enter a prompt and click Generate Motion " +
+        "to start live continuous mode.";
+};
+
+// Intercept Generate only when Continuous Mode
+// is selected. Normal generation stays unchanged.
+generateButton.onclick = async () => {
+    if (!continuousCheckbox.checked) {
+        if (live.active) stopLive();
+        return await originalGenerateAction();
+    }
+
+    const requestedPrompt =
+        document.getElementById("promptInput")
+        .value.trim();
+
+    if (!requestedPrompt) {
+        continuousStatus.textContent =
+            "Enter an action first.";
+        return;
+    }
+
+    // During a live session, Generate becomes Change Action.
+    // The character keeps moving during the request.
+    if (live.active && live.online) {
+
+        if (requestedPrompt === live.nextPrompt) {
+            continuousStatus.textContent =
+                'Already performing: "' +
+                requestedPrompt + '"';
+            return;
+        }
+
+        // Newest command takes priority.
+        live.nextPrompt = requestedPrompt;
+        live.changeRevision =
+            (live.changeRevision || 0) + 1;
+
+        // Never make the character play a previously
+        // queued segment of the old action.
+        const skipped = live.ready.length;
+        live.ready.length = 0;
+
+        continuousStatus.textContent =
+            'Switching to "' + requestedPrompt +
+            '" at the next short motion boundary...' +
+            (skipped ? ' Old queued motion removed.' : '');
+
+        // If the GPU is busy, the completion handler
+        // will submit this latest prompt immediately.
+        if (!live.fetching) {
+            requestLiveContinuation();
+        }
+
+        return;
+    }
+
+    stopLive();
+    continuousCheckbox.checked = true;
+
+    const previousMotion = motion;
+
+    // Temporarily use 8 primitives for initial Continuous
+    // Mode generation, then restore the visible selection.
+    // The existing manual Generate handler is unchanged.
+    const repetitionsSelect =
+        document.getElementById("repetitions");
+
+    const originalSelection = repetitionsSelect.value;
+    const temporaryOption = document.createElement("option");
+
+    temporaryOption.value = "8";
+    temporaryOption.textContent = "8";
+    repetitionsSelect.appendChild(temporaryOption);
+    repetitionsSelect.value = "8";
+
+    let generationTask;
+
+    try {
+        // The existing handler reads repetitions before
+        // its first await, so restoring the control now
+        // does not change this generation request.
+        generationTask = originalGenerateAction();
+    } finally {
+        repetitionsSelect.value = originalSelection;
+        temporaryOption.remove();
+    }
+
+    await generationTask;
+
+    if (
+        motion !== previousMotion &&
+        motionSessionId &&
+        Array.isArray(motion.joints)
+    ) {
+        startLive(
+            motion.joints,
+            requestedPrompt,
+            true
+        );
+    } else {
+        continuousStatus.textContent =
+            "Initial generation did not succeed.";
+    }
+};
+
+// Re-render the current continuous pose if appearance
+// or axis selection changes.
+avatarSelect.addEventListener("change", () => {
+    if (live.active && live.last) {
+        renderLivePose(live.last);
+    }
+});
+
+axis.addEventListener("change", () => {
+    if (live.active && live.last) {
+        renderLivePose(live.last);
+    }
+});
+
+// ==================================================
+// END LIVE_CONTINUOUS_V98
+// ==================================================
+
+
 function animate(time) {
     requestAnimationFrame(animate);
 
-    if (motion && playing && time - lastFrameTime >= 1000 / motion.fps) {
+    if (
+        live.active &&
+        playing &&
+        time - lastFrameTime >= 1000 / live.fps
+    ) {
+        advanceLive();
+        lastFrameTime = time;
+
+    } else if (
+        !live.active &&
+        motion &&
+        playing &&
+        time - lastFrameTime >= 1000 / motion.fps
+    ) {
         frame = (frame + 1) % motion.frames;
         drawFrame(frame);
         lastFrameTime = time;
@@ -1083,5 +2160,424 @@ window.addEventListener("resize", () => {
 
 animate(0);
 </script>
+
+<script>
+// Separate UI controls from the DART Three.js module.
+(function () {
+    const studio = document.getElementById("studioView");
+    const settings = document.getElementById("settingsView");
+    const apiBase = document.getElementById("apiBase");
+    const apiKey = document.getElementById("apiKey");
+    const pill = document.getElementById("connectionPill");
+
+    function refreshConnectionLabel() {
+        pill.textContent =
+            apiBase.value.trim() && apiKey.value.trim()
+                ? "Backend configured"
+                : "Setup required — open Settings";
+    }
+
+    function showView(view) {
+        const isStudio = view === "studio";
+        studio.hidden = !isStudio;
+        settings.hidden = isStudio;
+
+        document.querySelectorAll("[data-view]").forEach(button => {
+            button.classList.toggle(
+                "active",
+                button.classList.contains("nav-button") &&
+                button.dataset.view === view
+            );
+        });
+
+        // Ensure the Three.js canvas updates after returning.
+        if (isStudio) {
+            requestAnimationFrame(() => {
+                window.dispatchEvent(new Event("resize"));
+            });
+        }
+    }
+
+    document.querySelectorAll("[data-view]").forEach(button => {
+        button.addEventListener("click", () => {
+            showView(button.dataset.view);
+        });
+    });
+
+    // URL persists in this browser.
+    // API key persists only in this tab's session.
+    try {
+        apiBase.value =
+            localStorage.getItem("dart_backend_url") || "";
+        apiKey.value =
+            sessionStorage.getItem("dart_api_key") || "";
+    } catch (error) {
+        console.warn("Browser storage unavailable:", error);
+    }
+
+    apiBase.addEventListener("input", () => {
+        try {
+            localStorage.setItem(
+                "dart_backend_url", apiBase.value.trim()
+            );
+        } catch (error) {}
+        refreshConnectionLabel();
+    });
+
+    apiKey.addEventListener("input", () => {
+        try {
+            sessionStorage.setItem(
+                "dart_api_key", apiKey.value
+            );
+        } catch (error) {}
+        refreshConnectionLabel();
+    });
+
+    document.getElementById("toggleApiKey").onclick = () => {
+        const showing = apiKey.type === "text";
+        apiKey.type = showing ? "password" : "text";
+        document.getElementById("toggleApiKey").textContent =
+            showing ? "Show Key" : "Hide Key";
+    };
+
+    document.getElementById("testBackend").onclick = async () => {
+        const result = document.getElementById("backendTestResult");
+        const url = apiBase.value.trim().replace(/\/+$/, "");
+
+        if (!url.startsWith("https://")) {
+            result.textContent = "Enter an HTTPS backend URL first.";
+            return;
+        }
+
+        result.textContent = "Checking connection...";
+
+        try {
+            const response = await fetch(url + "/health");
+            if (!response.ok) {
+                throw new Error("HTTP " + response.status);
+            }
+
+            const health = await response.json();
+            result.textContent =
+                "Backend reachable: " +
+                (health.model || health.status || "OK") +
+                ". API key is not verified by this test.";
+        } catch (error) {
+            result.textContent =
+                "Connection failed: " + error.message;
+        }
+    };
+
+    document.getElementById("clearBrowserSettings").onclick = () => {
+        apiBase.value = "";
+        apiKey.value = "";
+        apiKey.type = "password";
+
+        try {
+            localStorage.removeItem("dart_backend_url");
+            sessionStorage.removeItem("dart_api_key");
+        } catch (error) {}
+
+        refreshConnectionLabel();
+        document.getElementById("backendTestResult")
+            .textContent = "Saved connection cleared.";
+    };
+
+    document.querySelectorAll("[data-prompt]").forEach(button => {
+        button.addEventListener("click", () => {
+            document.getElementById("promptInput").value =
+                button.dataset.prompt;
+        });
+    });
+
+    refreshConnectionLabel();
+    showView("studio");
+})();
+</script>
+
+
+<script>
+// =================================================
+// STUDIO PREFERENCES V110
+// Browser-local settings and rigged model storage
+// =================================================
+
+(() => {
+    const get = id => document.getElementById(id);
+
+    const preferenceIds = [
+        "avatarMode",
+        "repetitions",
+        "axis",
+        "humanGroundOffset",
+        "continuousFollow"
+    ];
+
+    // Load preferences before Three.js initializes.
+    for (const id of preferenceIds) {
+        try {
+            const stored = localStorage.getItem(
+                "dart_preference_" + id
+            );
+
+            if (stored === null) continue;
+
+            const element = get(id);
+
+            if (element.type === "checkbox") {
+                element.checked = stored === "true";
+            } else if (
+                [...element.options || []].length === 0 ||
+                [...element.options].some(
+                    option => option.value === stored
+                )
+            ) {
+                element.value = stored;
+            }
+
+        } catch (error) {
+            console.warn("Preference unavailable:", id);
+        }
+    }
+
+    const groundValue = get("humanGroundValue");
+    groundValue.textContent =
+        Number(get("humanGroundOffset").value)
+            .toFixed(2) + " m";
+
+    // Save changes made in Settings.
+    for (const id of preferenceIds) {
+        const element = get(id);
+
+        element.addEventListener("change", () => {
+            const value = element.type === "checkbox"
+                ? String(element.checked)
+                : element.value;
+
+            try {
+                localStorage.setItem(
+                    "dart_preference_" + id,
+                    value
+                );
+            } catch (error) {
+                console.warn("Could not save preference:", id);
+            }
+        });
+    }
+
+    // -------------------------------
+    // IndexedDB for locally stored FBX
+    // -------------------------------
+
+    const DB_NAME = "dart-motion-studio-assets";
+    const STORE_NAME = "models";
+
+    function openModelDB() {
+        return new Promise((resolve, reject) => {
+            if (!window.indexedDB) {
+                reject(new Error("IndexedDB unavailable"));
+                return;
+            }
+
+            const request = indexedDB.open(DB_NAME, 1);
+
+            request.onupgradeneeded = () => {
+                const db = request.result;
+
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(
+                        STORE_NAME, {keyPath: "id"}
+                    );
+                }
+            };
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () =>
+                reject(request.error);
+        });
+    }
+
+    async function getSavedModel() {
+        const db = await openModelDB();
+
+        try {
+            return await new Promise((resolve, reject) => {
+                const tx = db.transaction(
+                    STORE_NAME, "readonly"
+                );
+
+                const request = tx.objectStore(
+                    STORE_NAME
+                ).get("human");
+
+                request.onsuccess = () =>
+                    resolve(request.result);
+
+                request.onerror = () =>
+                    reject(request.error);
+            });
+        } finally {
+            db.close();
+        }
+    }
+
+    async function saveModel(file) {
+        const db = await openModelDB();
+
+        try {
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction(
+                    STORE_NAME, "readwrite"
+                );
+
+                tx.objectStore(STORE_NAME).put({
+                    id: "human",
+                    name: file.name,
+                    blob: file,
+                    modified: file.lastModified
+                });
+
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+                tx.onabort = () => reject(tx.error);
+            });
+        } finally {
+            db.close();
+        }
+    }
+
+    async function forgetModel() {
+        const db = await openModelDB();
+
+        try {
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction(
+                    STORE_NAME, "readwrite"
+                );
+
+                tx.objectStore(STORE_NAME)
+                    .delete("human");
+
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+                tx.onabort = () => reject(tx.error);
+            });
+        } finally {
+            db.close();
+        }
+    }
+
+    const modelInput = get("humanFBX");
+    const modelStatus = get("modelSaveStatus");
+    let restoring = false;
+
+    modelInput.addEventListener("change", async () => {
+        if (restoring) return;
+
+        const file = modelInput.files[0];
+        if (!file) return;
+
+        if (!file.name.toLowerCase().endsWith(".fbx")) {
+            modelStatus.textContent =
+                "Please choose an FBX model.";
+            return;
+        }
+
+        if (file.size > 25 * 1024 * 1024) {
+            modelStatus.textContent =
+                "Model is too large to save automatically.";
+            return;
+        }
+
+        modelStatus.textContent = "Saving model locally...";
+
+        try {
+            await saveModel(file);
+            modelStatus.textContent =
+                "Saved locally: " + file.name +
+                ". It will load automatically next time.";
+        } catch (error) {
+            modelStatus.textContent =
+                "Model is usable now, but browser storage " +
+                "failed: " + error.message;
+        }
+    });
+
+    // Wait until all Three.js module listeners have loaded.
+    window.addEventListener("load", async () => {
+        try {
+            const saved = await getSavedModel();
+            if (!saved || !saved.blob) return;
+
+            modelStatus.textContent =
+                "Restoring saved model: " + saved.name;
+
+            const file = new File(
+                [saved.blob],
+                saved.name,
+                {
+                    type: "application/octet-stream",
+                    lastModified: saved.modified || Date.now()
+                }
+            );
+
+            const transfer = new DataTransfer();
+            transfer.items.add(file);
+
+            restoring = true;
+            modelInput.files = transfer.files;
+
+            // Trigger the existing FBXLoader code.
+            modelInput.dispatchEvent(
+                new Event("change", {bubbles: true})
+            );
+
+            restoring = false;
+
+            modelStatus.textContent =
+                "Saved model restored: " + saved.name;
+
+        } catch (error) {
+            restoring = false;
+            modelStatus.textContent =
+                "Couldn't automatically restore the model. " +
+                "You can select it manually.";
+            console.warn(error);
+        }
+    });
+
+    get("forgetHuman").addEventListener(
+        "click",
+        async () => {
+            try {
+                await forgetModel();
+
+                modelStatus.textContent =
+                    "Saved model forgotten. The current " +
+                    "avatar remains until you refresh.";
+
+            } catch (error) {
+                modelStatus.textContent =
+                    "Could not clear model: " + error.message;
+            }
+        }
+    );
+
+    // Keyboard shortcut: Ctrl+Enter or Cmd+Enter.
+    get("promptInput").addEventListener(
+        "keydown",
+        event => {
+            if (
+                event.key === "Enter" &&
+                (event.ctrlKey || event.metaKey)
+            ) {
+                event.preventDefault();
+                get("generate").click();
+            }
+        }
+    );
+})();
+</script>
+
 </body>
 </html>
