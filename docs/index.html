@@ -309,6 +309,43 @@ textarea:focus-visible {
     outline-offset: 2px;
 }
 
+
+/* DART_VIDEO_RECORDING_V116 */
+
+.recording-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    width: 100%;
+    padding-top: 12px;
+    border-top: 1px solid #30465f;
+}
+
+#startVideoRecording {
+    background: #314760;
+    color: #f2f5fa;
+}
+
+#stopVideoRecording {
+    background: #713c44;
+    color: white;
+}
+
+#videoRecordingStatus {
+    overflow-wrap: anywhere;
+}
+
+#videoRecordingStatus.is-recording {
+    color: #ffadad;
+}
+
+@media (max-width: 600px) {
+    .recording-controls button {
+        flex: 1;
+    }
+}
+
 </style>
 </head>
 
@@ -381,6 +418,27 @@ textarea:focus-visible {
                 </label>
 
                 <span id="counter" class="muted small"></span>
+<div class="recording-controls">
+    <button id="startVideoRecording"
+            type="button"
+            class="btn-secondary">
+        ● Record Video
+    </button>
+
+    <button id="stopVideoRecording"
+            type="button"
+            class="btn-danger"
+            disabled>
+        ■ Stop & Save
+    </button>
+
+    <span id="videoRecordingStatus"
+          class="muted small"
+          role="status">
+        Ready to record
+    </span>
+</div>
+
             </div>
         </section>
 
@@ -2646,6 +2704,325 @@ animate(0);
             }
         }
     );
+})();
+</script>
+
+
+<script>
+// =============================================
+// DART_VIDEO_RECORDING_V116
+// Record the WebGL viewer using MediaRecorder.
+// No backend, GPU, or account required.
+// =============================================
+
+(() => {
+    const startButton =
+        document.getElementById("startVideoRecording");
+
+    const stopButton =
+        document.getElementById("stopVideoRecording");
+
+    const status =
+        document.getElementById("videoRecordingStatus");
+
+    let recorder = null;
+    let stream = null;
+    let chunks = [];
+    let timer = null;
+    let startedAt = 0;
+
+    const MAX_RECORDING_SECONDS = 180;
+
+    function setStatus(message, recording = false) {
+        status.textContent = message;
+        status.classList.toggle(
+            "is-recording",
+            recording
+        );
+    }
+
+    function resetButtons() {
+        startButton.disabled = false;
+        stopButton.disabled = true;
+    }
+
+    function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainder = Math.floor(seconds % 60);
+
+        return String(minutes).padStart(2, "0") +
+            ":" +
+            String(remainder).padStart(2, "0");
+    }
+
+    function getSupportedType() {
+        const types = [
+            "video/webm;codecs=vp9",
+            "video/webm;codecs=vp8",
+            "video/webm",
+            "video/mp4"
+        ];
+
+        if (!window.MediaRecorder) {
+            return null;
+        }
+
+        for (const type of types) {
+            if (MediaRecorder.isTypeSupported(type)) {
+                return type;
+            }
+        }
+
+        return "";
+    }
+
+    startButton.addEventListener(
+        "click",
+        async () => {
+            if (
+                recorder &&
+                recorder.state !== "inactive"
+            ) {
+                return;
+            }
+
+            if (
+                !window.MediaRecorder ||
+                !HTMLCanvasElement.prototype.captureStream
+            ) {
+                setStatus(
+                    "Video recording is not supported " +
+                    "in this browser."
+                );
+                return;
+            }
+
+            const canvas = document.querySelector(
+                "#viewer canvas"
+            );
+
+            if (!canvas) {
+                setStatus(
+                    "3D viewer not ready. Try again."
+                );
+                return;
+            }
+
+            try {
+                chunks = [];
+
+                stream = canvas.captureStream(30);
+
+                if (!stream.getVideoTracks().length) {
+                    throw new Error(
+                        "No video track available."
+                    );
+                }
+
+                const type = getSupportedType();
+
+                const options = {
+                    videoBitsPerSecond: 4000000
+                };
+
+                if (type) {
+                    options.mimeType = type;
+                }
+
+                recorder = new MediaRecorder(
+                    stream,
+                    options
+                );
+
+                recorder.ondataavailable = event => {
+                    if (event.data.size > 0) {
+                        chunks.push(event.data);
+                    }
+                };
+
+                recorder.onerror = event => {
+                    setStatus(
+                        "Recording error: " +
+                        (
+                            event.error?.message ||
+                            "Unknown error"
+                        )
+                    );
+                };
+
+                recorder.onstop = () => {
+                    if (timer) {
+                        clearInterval(timer);
+                        timer = null;
+                    }
+
+                    if (stream) {
+                        stream.getTracks().forEach(
+                            track => track.stop()
+                        );
+                        stream = null;
+                    }
+
+                    resetButtons();
+
+                    if (!chunks.length) {
+                        setStatus(
+                            "No video was captured. " +
+                            "Try recording again."
+                        );
+                        return;
+                    }
+
+                    const mime = recorder.mimeType ||
+                        "video/webm";
+
+                    const blob = new Blob(
+                        chunks,
+                        { type: mime }
+                    );
+
+                    const extension =
+                        mime.includes("mp4")
+                            ? "mp4"
+                            : "webm";
+
+                    const date = new Date();
+
+                    const filename =
+                        "DART_Motion_" +
+                        date.getFullYear() + "-" +
+                        String(
+                            date.getMonth() + 1
+                        ).padStart(2, "0") + "-" +
+                        String(
+                            date.getDate()
+                        ).padStart(2, "0") + "_" +
+                        String(
+                            date.getHours()
+                        ).padStart(2, "0") + "-" +
+                        String(
+                            date.getMinutes()
+                        ).padStart(2, "0") +
+                        "." + extension;
+
+                    const url = URL.createObjectURL(
+                        blob
+                    );
+
+                    const link = document.createElement(
+                        "a"
+                    );
+
+                    link.href = url;
+                    link.download = filename;
+
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+
+                    setTimeout(
+                        () => URL.revokeObjectURL(url),
+                        60000
+                    );
+
+                    setStatus(
+                        "Saved " + filename +
+                        " (" +
+                        (blob.size / 1024 / 1024)
+                            .toFixed(1) +
+                        " MB)"
+                    );
+
+                    chunks = [];
+                };
+
+                recorder.start(1000);
+
+                startedAt = performance.now();
+
+                startButton.disabled = true;
+                stopButton.disabled = false;
+
+                setStatus(
+                    "● Recording 00:00",
+                    true
+                );
+
+                timer = setInterval(() => {
+                    const elapsed =
+                        (
+                            performance.now() -
+                            startedAt
+                        ) / 1000;
+
+                    setStatus(
+                        "● Recording " +
+                        formatTime(elapsed),
+                        true
+                    );
+
+                    // Safety limit prevents huge files
+                    // if recording is accidentally left on.
+                    if (
+                        elapsed >=
+                        MAX_RECORDING_SECONDS
+                    ) {
+                        if (
+                            recorder &&
+                            recorder.state === "recording"
+                        ) {
+                            recorder.stop();
+                        }
+                    }
+                }, 250);
+
+            } catch (error) {
+                console.error(error);
+
+                if (timer) {
+                    clearInterval(timer);
+                    timer = null;
+                }
+
+                if (stream) {
+                    stream.getTracks().forEach(
+                        track => track.stop()
+                    );
+                    stream = null;
+                }
+
+                resetButtons();
+
+                setStatus(
+                    "Could not start recording: " +
+                    error.message
+                );
+            }
+        }
+    );
+
+    stopButton.addEventListener(
+        "click",
+        () => {
+            if (
+                recorder &&
+                recorder.state === "recording"
+            ) {
+                setStatus("Saving video...");
+                recorder.stop();
+            }
+        }
+    );
+
+    window.addEventListener("pagehide", () => {
+        if (
+            recorder &&
+            recorder.state === "recording"
+        ) {
+            recorder.stop();
+        }
+    });
+
 })();
 </script>
 
