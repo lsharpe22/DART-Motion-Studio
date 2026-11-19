@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -601,6 +602,11 @@ textarea:focus-visible {
                 <option value="human">Human</option>
             </select>
 
+            <label class="toggle-row" title="Compare the calibrated 22-joint retargeter against the original limb-only animation">
+                <span>Improved 22-joint retargeting</span>
+                <input type="checkbox" id="improvedHumanRetarget" checked>
+            </label>
+
             <label class="field-label" for="humanFBX">
                 Rigged Human Model (.fbx)
             </label>
@@ -1003,7 +1009,214 @@ function alignRiggedHumanToFloor() {
 // END HUMAN_GROUND_V113
 // ==========================================
 
+// ==========================================
+// MIXAMO 22-JOINT RETARGETER — V2
+// Calibrates each real FBX bone to its initial DART direction.
+// Solves in CURRENT parent/world space, from hips to extremities.
+// Keeps V94 available for A/B comparison in Settings.
+// ==========================================
+
+const humanRetargetLinks = [
+    // Mixamo bone, actual child bone, DART parent + child joint
+    ["hips",          "spine",        0, 3],
+    ["spine",         "spine1",       3, 6],
+    ["spine1",        "spine2",       6, 9],
+    ["spine2",        "neck",         9, 12],
+    ["neck",          "head",        12, 15],
+    ["leftshoulder",  "leftarm",     13, 16],
+    ["leftarm",       "leftforearm", 16, 18],
+    ["leftforearm",   "lefthand",    18, 20],
+    ["rightshoulder", "rightarm",    14, 17],
+    ["rightarm",      "rightforearm",17, 19],
+    ["rightforearm",  "righthand",   19, 21],
+    ["leftupleg",     "leftleg",      1, 4],
+    ["leftleg",       "leftfoot",     4, 7],
+    ["leftfoot",      "lefttoebase",  7, 10],
+    ["rightupleg",    "rightleg",     2, 5],
+    ["rightleg",      "rightfoot",    5, 8],
+    ["rightfoot",     "righttoebase", 8, 11]
+];
+
+let humanRetargetCalibration = null;
+
+function humanDirection(points, a, b) {
+    if (!points[a] || !points[b]) return null;
+    const direction = points[b].clone().sub(points[a]);
+    if (direction.lengthSq() < 1e-8) return null;
+    return direction.normalize();
+}
+
+function buildHumanRetargetCalibration(initialPose) {
+    if (!liveHuman) return null;
+
+    // Reset to the FBX bind/rest pose before recording bone directions.
+    for (const [bone, rest] of liveHumanRest) {
+        bone.quaternion.copy(rest);
+    }
+    liveHuman.updateMatrixWorld(true);
+
+    const first = initialPose.map(humanConvert);
+    const entries = [];
+    for (const [name, childName, a, b] of humanRetargetLinks) {
+        const bone = liveHumanBones.get(name);
+        const child = liveHumanBones.get(childName);
+        const dartRest = humanDirection(first, a, b);
+        if (!bone || !child || !dartRest) continue;
+
+        const bonePos = bone.getWorldPosition(new THREE.Vector3());
+        const childPos = child.getWorldPosition(new THREE.Vector3());
+        const rigRest = childPos.sub(bonePos);
+        if (rigRest.lengthSq() < 1e-8) continue;
+        rigRest.normalize();
+
+        entries.push({
+            bone, child, a, b,
+            // A separate rest-pose alignment handles FBX T/A poses.
+            align: new THREE.Quaternion().setFromUnitVectors(
+                dartRest, rigRest
+            )
+        });
+    }
+
+    // Calibrate the pelvis lateral axis so changes of facing direction
+    // are not lost when spine segments are nearly vertical.
+    let hipAlign = null;
+    const lHip = liveHumanBones.get("leftupleg");
+    const rHip = liveHumanBones.get("rightupleg");
+    const dartLateral = humanDirection(first, 1, 2);
+    if (lHip && rHip && dartLateral) {
+        const rigLateral = rHip.getWorldPosition(new THREE.Vector3())
+            .sub(lHip.getWorldPosition(new THREE.Vector3()));
+        rigLateral.y = 0;
+        if (rigLateral.lengthSq() > 1e-8) {
+            const horizontalDart = dartLateral.clone();
+            horizontalDart.y = 0;
+            if (horizontalDart.lengthSq() > 1e-8) {
+                hipAlign = new THREE.Quaternion().setFromUnitVectors(
+                    horizontalDart.normalize(), rigLateral.normalize()
+                );
+            }
+        }
+    }
+    return { initialPose, entries, hipAlign };
+}
+
+function updateLiveHumanV2(jointData) {
+    if (!liveHuman || !motion?.joints?.length ||
+        !Array.isArray(jointData) || jointData.length < 22) return;
+
+    const initialPose = motion.joints[0];
+    if (!humanRetargetCalibration ||
+        humanRetargetCalibration.initialPose !== initialPose) {
+        humanRetargetCalibration =
+            buildHumanRetargetCalibration(initialPose);
+    }
+    const calibration = humanRetargetCalibration;
+    if (!calibration) return;
+
+    const first = initialPose.map(humanConvert);
+    const current = jointData.map(humanConvert);
+
+    // Deterministic frame scrubbing, also compatible with blended poses.
+    for (const [bone, rest] of liveHumanRest) {
+        bone.quaternion.copy(rest);
+    }
+
+    liveHuman.position.copy(liveHumanBase).add(
+        current[0].clone().sub(first[0]).multiplyScalar(liveHumanScale)
+    );
+    const groundOffset = Number(
+        document.getElementById("humanGroundOffset").value
+    );
+    liveHuman.position.y += Number.isFinite(groundOffset)
+        ? groundOffset : 0;
+    liveHuman.updateMatrixWorld(true);
+
+    // Pelvis yaw from the two hip joints, rather than from root travel.
+    const hips = liveHumanBones.get("hips");
+    if (hips && calibration.hipAlign) {
+        const lateral = humanDirection(current, 1, 2);
+        const lHip = liveHumanBones.get("leftupleg");
+        const rHip = liveHumanBones.get("rightupleg");
+        if (lateral && lHip && rHip) {
+            const wanted = lateral.applyQuaternion(calibration.hipAlign);
+            wanted.y = 0;
+            const actual = rHip.getWorldPosition(new THREE.Vector3())
+                .sub(lHip.getWorldPosition(new THREE.Vector3()));
+            actual.y = 0;
+            if (wanted.lengthSq() > 1e-8 && actual.lengthSq() > 1e-8) {
+                wanted.normalize();
+                actual.normalize();
+                const signed = Math.atan2(
+                    actual.x * wanted.z - actual.z * wanted.x,
+                    actual.dot(wanted)
+                );
+                const bounded = THREE.MathUtils.clamp(signed, -1.4, 1.4);
+                const yaw = new THREE.Quaternion().setFromAxisAngle(
+                    new THREE.Vector3(0, 1, 0), -bounded * 0.9
+                );
+                const parentWorld = hips.parent.getWorldQuaternion(
+                    new THREE.Quaternion()
+                );
+                const world = hips.getWorldQuaternion(new THREE.Quaternion());
+                hips.quaternion.copy(parentWorld.invert().multiply(
+                    yaw.multiply(world)
+                ));
+                hips.updateWorldMatrix(false, true);
+            }
+        }
+    }
+
+    // Hierarchical directional IK: each child's current world-space
+    // position determines how much its parent bone must rotate.
+    for (const entry of calibration.entries) {
+        const target = humanDirection(current, entry.a, entry.b);
+        if (!target) continue;
+        target.applyQuaternion(entry.align).normalize();
+
+        const actual = entry.child.getWorldPosition(new THREE.Vector3())
+            .sub(entry.bone.getWorldPosition(new THREE.Vector3()));
+        if (actual.lengthSq() < 1e-8) continue;
+        actual.normalize();
+
+        const correction = new THREE.Quaternion().setFromUnitVectors(
+            actual, target
+        );
+        const angle = correction.angleTo(new THREE.Quaternion());
+        const limit = THREE.MathUtils.degToRad(80);
+        const factor = angle > 1e-6 ? Math.min(1, limit / angle) : 1;
+        correction.slerp(new THREE.Quaternion(), 1 - factor * 0.95);
+
+        const boneWorld = entry.bone.getWorldQuaternion(
+            new THREE.Quaternion()
+        );
+        const parentWorld = entry.bone.parent.getWorldQuaternion(
+            new THREE.Quaternion()
+        );
+        const desiredWorld = correction.multiply(boneWorld);
+        entry.bone.quaternion.copy(
+            parentWorld.invert().multiply(desiredWorld)
+        ).normalize();
+        entry.bone.updateWorldMatrix(false, true);
+    }
+    liveHuman.updateMatrixWorld(true);
+}
+
 function updateLiveHuman(jointData) {
+    const improved = document.getElementById("improvedHumanRetarget");
+    if (improved?.checked) {
+        updateLiveHumanV2(jointData);
+    } else {
+        updateLiveHumanLegacy(jointData);
+    }
+}
+
+document.getElementById("improvedHumanRetarget")
+    .addEventListener("change", () => {
+        if (motion?.joints?.length) drawFrame(frame);
+    });
+
+function updateLiveHumanLegacy(jointData) {
     if (!liveHuman || !motion || !motion.joints.length) {
         return;
     }
@@ -1188,6 +1401,7 @@ document.getElementById("humanFBX")
         liveHumanBones = bones;
         liveHumanRest = rest;
         liveHumanWorldRest = worldRest;
+        humanRetargetCalibration = null;
         liveHumanBase = character.position.clone();
 
         scene.add(liveHuman);
@@ -1242,7 +1456,7 @@ document.getElementById("humanFBX")
         }
 
         humanRigStatus.textContent =
-            "Rigged human ready — 0° / 65%";
+            "Rigged human ready — improved 22-joint mapping";
 
     } catch (error) {
         console.error(error);
