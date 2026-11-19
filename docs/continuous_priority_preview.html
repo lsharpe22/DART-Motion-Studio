@@ -1,0 +1,1709 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DART Motion Viewer</title>
+<style>
+body {
+    margin: 0;
+    background: #0b1424;
+    color: #e8eef8;
+    font-family: Arial, sans-serif;
+}
+header {
+    padding: 18px 24px;
+    background: #111f34;
+    border-bottom: 1px solid #293b55;
+}
+h2 { margin: 0; color: #f1a35b; }
+p { color: #aebbd0; }
+#viewer { height: 65vh; }
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px;
+    flex-wrap: wrap;
+}
+button, select {
+    background: #d68143;
+    border: 0;
+    color: #101826;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+input[type=range] { width: 260px; }
+</style>
+</head>
+<body>
+<header>
+    <h2>DART Motion Studio</h2>
+    <p id="prompt">Loading motion...</p>
+</header>
+
+<div class="controls">
+    <input id="promptInput"
+           type="text"
+           value="walk forward"
+           placeholder="Describe a motion"
+           style="padding:10px; min-width:280px;">
+    <select id="repetitions">
+        <option value="5">Short</option>
+        <option value="10">Medium</option>
+        <option value="20">Long</option>
+    </select>
+
+<div id="apiConnection" style="margin:12px 0; display:grid; gap:10px;">
+    <label style="display:block;">
+        Backend URL
+        <input
+            id="apiBase"
+            type="url"
+            placeholder="https://your-tunnel.trycloudflare.com"
+            style="width:100%; box-sizing:border-box;"
+            autocomplete="off"
+        />
+    </label>
+
+    <label style="display:block;">
+        API Key
+        <input
+            id="apiKey"
+            type="password"
+            placeholder="Enter your DART API key"
+            style="width:100%; box-sizing:border-box;"
+            autocomplete="off"
+        />
+    </label>
+</div>
+<button id="generate">Generate Motion</button>
+<button id="continueMotion" type="button" disabled>
+    Continue Motion
+</button>
+
+    <span id="status">Ready</span>
+</div>
+<div id="viewer"></div>
+
+<div class="controls">
+
+<label style="display:inline-flex; align-items:center; gap:8px;">
+    Appearance
+    <select id="avatarMode">
+        <option value="skeleton">Skeleton</option>
+        <option value="robot">Robot</option>
+        <option value="human">Human</option>
+    </select>
+</label>
+
+<label style="display:inline-flex; align-items:center; gap:7px;">
+    Rigged Human
+    <input
+        type="file"
+        id="humanFBX"
+        accept=".fbx"
+        style="max-width:190px;"
+    >
+</label>
+
+<label style="display:inline-flex;align-items:center;gap:7px;">
+    Ground Height
+    <input
+        id="humanGroundOffset"
+        type="range"
+        min="-1.00"
+        max="0.50"
+        step="0.02"
+        value="-1"
+    >
+    <span id="humanGroundValue">-1.00 m</span>
+</label>
+
+<span id="humanRigStatus" style="font-size:12px;">
+    Select your Mixamo human FBX
+</span>
+
+<div style="
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    align-items:center;
+    padding:12px;
+    margin:12px 0;
+    background:#182a42;
+    border:1px solid #405878;
+    border-radius:9px;
+">
+    <label>
+        <input type="checkbox" id="continuousMode">
+        Continuous Mode
+    </label>
+
+    <button type="button" id="continuousSample">
+        Test Sample Loop
+    </button>
+
+    <button type="button" id="continuousStop" disabled>
+        Stop Continuous
+    </button>
+
+    <label>
+        <input type="checkbox" id="continuousFollow" checked>
+        Follow Character
+    </label>
+
+    <span id="continuousStatus"
+          style="font-size:12px;color:#b8c8da;">
+        Continuous Mode is off
+    </span>
+</div>
+
+<button id="play">Pause</button>
+
+    <label>Frame <input type="range" id="frame" min="0" value="0"></label>
+    <span id="counter"></span>
+    <label>Up axis
+        <select id="axis">
+            <option value="z">Z up</option>
+            <option value="y">Y up</option>
+        </select>
+    </label>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+
+const container = document.getElementById("viewer");
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b1424);
+
+const camera = new THREE.PerspectiveCamera(
+    50, container.clientWidth / container.clientHeight, 0.01, 100
+);
+camera.position.set(3, 2.5, 3);
+
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setSize(container.clientWidth, container.clientHeight);
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+
+const grid = new THREE.GridHelper(4, 20, 0x536780, 0x25344a);
+scene.add(grid);
+
+// Skeleton connections for a common 22-joint SMPL-style ordering.
+// We will verify this mapping against DART's actual joint definition.
+const bones = [
+    [0,1],[0,2],[0,3],
+    [1,4],[2,5],[3,6],
+    [4,7],[5,8],[6,9],
+    [7,10],[8,11],[9,12],
+    [12,13],[12,14],[12,15],
+    [13,16],[14,17],
+    [16,18],[17,19],
+    [18,20],[19,21]
+];
+
+const jointsGroup = new THREE.Group();
+scene.add(jointsGroup);
+
+const spheres = [];
+for (let i = 0; i < 22; i++) {
+    const sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(0.035, 10, 10),
+        new THREE.MeshStandardMaterial({color: 0xf2a365})
+    );
+    jointsGroup.add(sphere);
+    spheres.push(sphere);
+}
+
+const lines = bones.map(() => {
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(6);
+    geometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(positions, 3)
+    );
+    const line = new THREE.Line(
+        geometry,
+        new THREE.LineBasicMaterial({color: 0x83b7d7})
+    );
+    jointsGroup.add(line);
+    return line;
+});
+
+
+// ==========================================
+// DART MOTION STUDIO - AVATAR SYSTEM
+// ==========================================
+
+const avatarSelect = document.getElementById("avatarMode");
+
+function createAvatar(style) {
+    const group = new THREE.Group();
+    scene.add(group);
+
+    const robot = style === "robot";
+
+    const material = new THREE.MeshStandardMaterial({
+        color: robot ? 0x91a7b9 : 0xd9c9b7,
+        metalness: robot ? 0.75 : 0.05,
+        roughness: robot ? 0.3 : 0.85
+    });
+
+    const jointMaterial = new THREE.MeshStandardMaterial({
+        color: robot ? 0xf2a365 : 0xd9c9b7,
+        metalness: robot ? 0.45 : 0.05,
+        roughness: 0.5
+    });
+
+    const geometry = robot
+        ? new THREE.BoxGeometry(1, 1, 1)
+        : new THREE.CylinderGeometry(1, 1, 1, 16);
+
+    const links = bones.map(() => {
+        const mesh = new THREE.Mesh(geometry, material);
+        group.add(mesh);
+        return mesh;
+    });
+
+    const markers = [];
+
+    for (let i = 0; i < 22; i++) {
+        const marker = new THREE.Mesh(
+            new THREE.SphereGeometry(
+                robot ? 0.058 : 0.055, 14, 10
+            ),
+            jointMaterial
+        );
+
+        group.add(marker);
+        markers.push(marker);
+    }
+
+    // Add a solid torso for a more recognizable body.
+    const torso = new THREE.Mesh(
+        robot
+            ? new THREE.BoxGeometry(1, 1, 1)
+            : new THREE.SphereGeometry(1, 20, 14),
+        material
+    );
+
+    group.add(torso);
+
+    // Separate head shape.
+    const head = new THREE.Mesh(
+        robot
+            ? new THREE.BoxGeometry(0.19, 0.22, 0.19)
+            : new THREE.SphereGeometry(0.11, 20, 14),
+        material
+    );
+
+    group.add(head);
+
+    if (robot) {
+        // Simple glowing visor on the robot's face.
+        const visor = new THREE.Mesh(
+            new THREE.BoxGeometry(0.145, 0.045, 0.012),
+            new THREE.MeshStandardMaterial({
+                color: 0x56d9f0,
+                emissive: 0x167a97,
+                emissiveIntensity: 0.7
+            })
+        );
+
+        visor.position.set(0, 0.025, 0.102);
+        head.add(visor);
+    }
+
+    group.visible = false;
+
+    return {
+        group,
+        links,
+        markers,
+        torso,
+        head,
+        robot
+    };
+}
+
+const robotAvatar = createAvatar("robot");
+const humanAvatar = createAvatar("human");
+
+
+// ==========================================
+// LIVE MIXAMO HUMAN RETARGETING — V94
+// Based on the calibrated human preview:
+// Facing 0°, strength 65%, arms + legs
+// ==========================================
+
+let liveHuman = null;
+let liveHumanBones = new Map();
+let liveHumanRest = new Map();
+let liveHumanWorldRest = new Map();
+let liveHumanBase = new THREE.Vector3();
+let liveHumanScale = 1;
+
+const humanRigStatus =
+    document.getElementById("humanRigStatus");
+
+const humanStrength = 0.65;
+const humanMaxAngle = THREE.MathUtils.degToRad(30);
+
+const humanSegments = {
+    leftarm:      [16, 18],
+    leftforearm:  [18, 20],
+    rightarm:     [17, 19],
+    rightforearm: [19, 21],
+    leftupleg:    [1, 4],
+    leftleg:      [4, 7],
+    rightupleg:   [2, 5],
+    rightleg:     [5, 8]
+};
+
+const humanParentSegments = {
+    leftforearm: "leftarm",
+    rightforearm: "rightarm",
+    leftleg: "leftupleg",
+    rightleg: "rightupleg"
+};
+
+function humanBoneName(obj) {
+    return String(obj.name || "")
+        .replace(/^.*mixamorig[:_]?/i, "")
+        .replace(/[^a-z0-9]/gi, "")
+        .toLowerCase();
+}
+
+// DART Z-up -> Three.js Y-up
+function humanConvert(point) {
+    return new THREE.Vector3(
+        point[0], point[2], point[1]
+    );
+}
+
+function humanSegmentDelta(name, first, current) {
+    const pair = humanSegments[name];
+
+    if (!pair) return new THREE.Quaternion();
+
+    const [a, b] = pair;
+
+    const start = first[b].clone().sub(first[a]);
+    const end = current[b].clone().sub(current[a]);
+
+    if (
+        start.lengthSq() < 1e-8 ||
+        end.lengthSq() < 1e-8
+    ) {
+        return new THREE.Quaternion();
+    }
+
+    return new THREE.Quaternion().setFromUnitVectors(
+        start.normalize(),
+        end.normalize()
+    );
+}
+
+function updateLiveHuman(jointData) {
+    if (!liveHuman || !motion || !motion.joints.length) {
+        return;
+    }
+
+    const first = motion.joints[0].map(humanConvert);
+    const current = jointData.map(humanConvert);
+
+    // Restore original local pose every frame.
+    for (const [bone, rotation] of liveHumanRest) {
+        bone.quaternion.copy(rotation);
+    }
+
+    // Follow the DART root trajectory.
+    liveHuman.position.copy(liveHumanBase).add(
+        current[0].clone()
+            .sub(first[0])
+            .multiplyScalar(liveHumanScale)
+    );
+
+    // HUMAN_GROUND_FIX_V95
+    // Additional adjustment without changing bone animation.
+    const groundOffset = Number(
+        document.getElementById("humanGroundOffset").value
+    );
+
+    liveHuman.position.y += groundOffset;
+
+    liveHuman.updateMatrixWorld(true);
+
+    const deltas = {};
+
+    for (const name of Object.keys(humanSegments)) {
+        deltas[name] = humanSegmentDelta(
+            name, first, current
+        );
+    }
+
+    for (const name of Object.keys(humanSegments)) {
+        const bone = liveHumanBones.get(name);
+
+        if (!bone) continue;
+
+        const rest = liveHumanRest.get(bone);
+
+        if (!rest) continue;
+
+        let delta = deltas[name].clone();
+
+        // Remove the motion already represented by
+        // the parent segment at elbows and knees.
+        const parentName = humanParentSegments[name];
+
+        if (parentName) {
+            delta = deltas[parentName]
+                .clone()
+                .invert()
+                .multiply(delta);
+        }
+
+        // Apply the settings tested in our preview.
+        const angle = delta.angleTo(
+            new THREE.Quaternion()
+        );
+
+        const fraction = angle > 1e-6
+            ? Math.min(1, humanMaxAngle / angle)
+            : 1;
+
+        const limited = new THREE.Quaternion()
+            .slerp(
+                delta,
+                fraction * humanStrength
+            );
+
+        const parentRest =
+            liveHumanWorldRest.get(bone.parent) ||
+            new THREE.Quaternion();
+
+        const localDelta = parentRest.clone()
+            .invert()
+            .multiply(limited)
+            .multiply(parentRest);
+
+        bone.quaternion.copy(rest);
+        bone.quaternion.premultiply(localDelta);
+    }
+
+    liveHuman.updateMatrixWorld(true);
+}
+
+document.getElementById("humanFBX")
+    .addEventListener("change", async event => {
+
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    humanRigStatus.textContent = "Loading human rig...";
+
+    try {
+        const buffer = await file.arrayBuffer();
+        const loader = new FBXLoader();
+
+        // Load from browser memory, not a public URL.
+        const character = loader.parse(buffer, "");
+
+        const bounds = new THREE.Box3()
+            .setFromObject(character);
+
+        const height = bounds.getSize(
+            new THREE.Vector3()
+        ).y;
+
+        if (!Number.isFinite(height) || height < 0.001) {
+            throw new Error("Invalid character dimensions.");
+        }
+
+        character.scale.multiplyScalar(1.75 / height);
+
+        // Calibration from Step 93: 0° facing.
+        character.rotation.y = 0;
+        character.updateMatrixWorld(true);
+
+        const normalized = new THREE.Box3()
+            .setFromObject(character);
+
+        const center = normalized.getCenter(
+            new THREE.Vector3()
+        );
+
+        character.position.set(
+            -center.x,
+            -normalized.min.y,
+            -center.z
+        );
+
+        character.updateMatrixWorld(true);
+
+        const bones = new Map();
+        const rest = new Map();
+        const worldRest = new Map();
+
+        character.traverse(part => {
+            if (part.isBone) {
+                bones.set(humanBoneName(part), part);
+                rest.set(part, part.quaternion.clone());
+                worldRest.set(
+                    part,
+                    part.getWorldQuaternion(
+                        new THREE.Quaternion()
+                    )
+                );
+            }
+        });
+
+        const required = [
+            "hips",
+            "leftarm", "leftforearm",
+            "rightarm", "rightforearm",
+            "leftupleg", "leftleg",
+            "rightupleg", "rightleg"
+        ];
+
+        const missing = required.filter(
+            name => !bones.has(name)
+        );
+
+        if (missing.length) {
+            throw new Error(
+                "Missing Mixamo bones: " +
+                missing.join(", ")
+            );
+        }
+
+        // Only replace the previous model after
+        // successfully validating the new one.
+        if (liveHuman) {
+            scene.remove(liveHuman);
+        }
+
+        liveHuman = character;
+        liveHumanBones = bones;
+        liveHumanRest = rest;
+        liveHumanWorldRest = worldRest;
+        liveHumanBase = character.position.clone();
+
+        scene.add(liveHuman);
+
+        // Match the normalized model height to DART.
+        if (motion && motion.joints.length) {
+            const first = motion.joints[0].map(
+                humanConvert
+            );
+
+            const ys = first.map(p => p.y);
+            const dartHeight =
+                Math.max(...ys) - Math.min(...ys);
+
+            liveHumanScale =
+                1.75 / Math.max(dartHeight, 0.1);
+        }
+
+        // Select the rigged human automatically.
+        avatarSelect.value = "human";
+
+        // DART data is Z-up.
+        axis.value = "z";
+
+        liveHuman.visible = true;
+
+        if (motion && motion.joints.length) {
+            // First apply DART's initial pose.
+            const previousFrame = frame;
+
+            drawFrame(0);
+
+            // Find the lowest point of the animated mesh.
+            // The precise bounding box accounts for skinned vertices.
+            const groundedBounds = new THREE.Box3()
+                .setFromObject(liveHuman, true);
+
+            if (
+                !groundedBounds.isEmpty() &&
+                Number.isFinite(groundedBounds.min.y)
+            ) {
+                // Move the lowest point onto the floor at Y=0.
+                liveHumanBase.y -= groundedBounds.min.y;
+            }
+
+            // Return to the frame the viewer was displaying.
+            drawFrame(previousFrame);
+        } else {
+            jointsGroup.visible = false;
+            robotAvatar.group.visible = false;
+            humanAvatar.group.visible = false;
+        }
+
+        humanRigStatus.textContent =
+            "Rigged human ready — 0° / 65%";
+
+    } catch (error) {
+        console.error(error);
+        humanRigStatus.textContent =
+            "Error: " + error.message;
+    }
+});
+
+
+document.getElementById("humanGroundOffset")
+    .addEventListener("input", event => {
+
+    const value = Number(event.target.value);
+
+    document.getElementById("humanGroundValue")
+        .textContent = value.toFixed(2) + " m";
+
+    if (motion && liveHuman) {
+        drawFrame(frame);
+    }
+});
+
+// ==========================================
+// END LIVE HUMAN RETARGETING
+// ==========================================
+
+
+
+const upDirection = new THREE.Vector3(0, 1, 0);
+
+function positionSegment(mesh, a, b, thickness) {
+    const direction = new THREE.Vector3().subVectors(b, a);
+    const length = Math.max(direction.length(), 0.001);
+
+    mesh.position.copy(a).add(b).multiplyScalar(0.5);
+
+    mesh.quaternion.setFromUnitVectors(
+        upDirection,
+        direction.normalize()
+    );
+
+    mesh.scale.set(thickness, length, thickness);
+}
+
+function updateAvatar(avatar, points) {
+    bones.forEach(([a, b], i) => {
+        // Wider upper legs and upper arms.
+        const thick = i < 12 ? 0.085 : 0.065;
+
+        positionSegment(
+            avatar.links[i],
+            points[a],
+            points[b],
+            avatar.robot ? thick * 1.2 : thick
+        );
+    });
+
+    points.forEach((point, i) => {
+        avatar.markers[i].position.copy(point);
+    });
+
+    // Solid torso from pelvis (0) to neck (12).
+    const pelvis = points[0];
+    const neck = points[12];
+
+    positionSegment(
+        avatar.torso,
+        pelvis,
+        neck,
+        1
+    );
+
+    const torsoLength = pelvis.distanceTo(neck);
+
+    avatar.torso.scale.set(
+        avatar.robot ? 0.34 : 0.20,
+        torsoLength * (avatar.robot ? 0.82 : 0.58),
+        avatar.robot ? 0.19 : 0.14
+    );
+
+    // SMPL-style joint 15 corresponds to the head.
+    avatar.head.position.copy(points[15]);
+}
+
+function updateAvatarMeshes(jointData) {
+    const mode = avatarSelect.value;
+
+    // Use the real Mixamo character when available.
+    if (mode === "human" && liveHuman) {
+        jointsGroup.visible = false;
+        robotAvatar.group.visible = false;
+        humanAvatar.group.visible = false;
+
+        liveHuman.visible = true;
+        updateLiveHuman(jointData);
+        return;
+    }
+
+    if (liveHuman) liveHuman.visible = false;
+
+    jointsGroup.visible = mode === "skeleton";
+    robotAvatar.group.visible = mode === "robot";
+    humanAvatar.group.visible = mode === "human";
+
+    if (mode === "skeleton") return;
+
+    const points = jointData.map(convert);
+
+    updateAvatar(
+        mode === "robot" ? robotAvatar : humanAvatar,
+        points
+    );
+}
+
+avatarSelect.addEventListener("change", () => {
+    if (motion && motion.joints.length) {
+        drawFrame(frame);
+    }
+});
+
+// ==========================================
+// END AVATAR SYSTEM
+// ==========================================
+
+let motion = null;
+let frame = 0;
+let playing = true;
+let lastFrameTime = 0;
+
+const slider = document.getElementById("frame");
+const counter = document.getElementById("counter");
+const axis = document.getElementById("axis");
+
+function convert(point) {
+    const [x,y,z] = point;
+    // Three.js uses Y as its vertical axis.
+    if (axis.value === "z") return new THREE.Vector3(x,z,y);
+    return new THREE.Vector3(x,y,z);
+}
+
+function drawFrame(index) {
+    if (!motion) return;
+
+    const joints = motion.joints[index];
+
+    // Update selected avatar using the current DART joints.
+    updateAvatarMeshes(joints);
+
+
+    joints.forEach((point, i) => {
+        spheres[i].position.copy(convert(point));
+    });
+
+    bones.forEach(([a,b], i) => {
+        const positions = lines[i].geometry.attributes.position;
+        const p1 = convert(joints[a]);
+        const p2 = convert(joints[b]);
+        positions.setXYZ(0,p1.x,p1.y,p1.z);
+        positions.setXYZ(1,p2.x,p2.y,p2.z);
+        positions.needsUpdate = true;
+    });
+
+    slider.value = index;
+    counter.textContent = `${index + 1} / ${motion.frames}`;
+}
+
+document.getElementById("play").onclick = () => {
+    playing = !playing;
+    document.getElementById("play").textContent =
+        playing ? "Pause" : "Play";
+};
+
+slider.oninput = () => {
+    frame = Number(slider.value);
+    drawFrame(frame);
+};
+
+axis.onchange = () => drawFrame(frame);
+
+async function loadMotion() {
+    const response = await fetch("./motion.json");
+    if (!response.ok) throw new Error("Could not load motion.json");
+
+    motion = await response.json();
+    document.getElementById("prompt").textContent =
+        `Prompt: ${motion.prompt}`;
+    slider.max = motion.frames - 1;
+
+    // Find the lowest joint across all frames.
+    // Convert Z-up motion into Three.js Y-up coordinates.
+    let minHeight = Infinity;
+
+    for (const frame of motion.joints) {
+        for (const joint of frame) {
+            const position = convert(joint);
+            minHeight = Math.min(minHeight, position.y);
+        }
+    }
+
+    // Place the grid just below the lowest joint.
+    grid.position.y = minHeight - 0.02;
+
+    drawFrame(0);
+}
+
+
+const generateButton = document.getElementById("generate");
+const statusLabel = document.getElementById("status");
+
+const continueButton = document.getElementById("continueMotion");
+let motionSessionId = null;
+let motionSessionBase = null;
+
+
+generateButton.onclick = async () => {
+    const prompt = document.getElementById("promptInput").value.trim();
+    const repetitions = Number(
+        document.getElementById("repetitions").value
+    );
+
+    if (!prompt) {
+        statusLabel.textContent = "Please enter a prompt.";
+        return;
+    }
+
+
+    const apiBase = document.getElementById("apiBase")
+        .value.trim().replace(/\/+$/, "");
+
+    const apiKey = document.getElementById("apiKey")
+        .value.trim();
+
+    if (!apiBase.startsWith("https://")) {
+        statusLabel.textContent = "Enter your HTTPS backend URL.";
+        return;
+    }
+
+    if (!apiKey) {
+        statusLabel.textContent = "Enter your API key.";
+        return;
+    }
+
+    continueButton.disabled = true;
+    generateButton.disabled = true;
+    statusLabel.textContent = "Generating motion...";
+
+    try {
+        const response = await fetch(`${apiBase}/generate`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json", "X-API-Key": apiKey},
+            body: JSON.stringify({prompt, repetitions})
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(error);
+        }
+
+        const result = await response.json();
+
+        motion = result;
+        motionSessionId = result.session_id || null;
+        motionSessionBase = apiBase;
+        frame = 0;
+        playing = true;
+        lastFrameTime = performance.now();
+
+        slider.max = motion.frames - 1;
+        document.getElementById("prompt").textContent =
+            `Prompt: ${motion.prompt}`;
+
+        // Reposition the floor for the new animation.
+        let minHeight = Infinity;
+        for (const motionFrame of motion.joints) {
+            for (const joint of motionFrame) {
+                minHeight = Math.min(minHeight, convert(joint).y);
+            }
+        }
+        grid.position.y = minHeight - 0.02;
+
+        drawFrame(0);
+
+        document.getElementById("play").textContent = "Pause";
+        statusLabel.textContent =
+            `Done! ${motion.frames} frames generated.`;
+
+    } catch (error) {
+        console.error(error);
+        statusLabel.textContent = "Generation failed: " + error.message;
+    } finally {
+        generateButton.disabled = false;
+        continueButton.disabled = !motionSessionId;
+    }
+};
+
+
+continueButton.onclick = async () => {
+    const prompt = document.getElementById("promptInput").value.trim();
+    const repetitions = Number(
+        document.getElementById("repetitions").value
+    );
+
+    const apiBase = document.getElementById("apiBase")
+        .value.trim().replace(/\/+$/, "");
+
+    const apiKey = document.getElementById("apiKey").value.trim();
+
+    if (!motionSessionId || !motion || !motion.joints) {
+        statusLabel.textContent = "Generate a new motion first.";
+        return;
+    }
+
+    if (!prompt) {
+        statusLabel.textContent = "Enter the next action.";
+        return;
+    }
+
+    if (apiBase !== motionSessionBase) {
+        statusLabel.textContent =
+            "Backend changed. Generate a new motion to start a session.";
+        return;
+    }
+
+    if (!apiKey) {
+        statusLabel.textContent = "Enter your DART API key.";
+        return;
+    }
+
+    // Hold the character at its ending pose during generation.
+    const previousFrame = frame;
+    const previousPlaying = playing;
+    const previousFrameCount = motion.joints.length;
+
+    playing = false;
+    frame = previousFrameCount - 1;
+    drawFrame(frame);
+
+    generateButton.disabled = true;
+    continueButton.disabled = true;
+    statusLabel.textContent = "Continuing motion from the last pose...";
+
+    try {
+        const response = await fetch(`${apiBase}/continue`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-API-Key": apiKey
+            },
+            body: JSON.stringify({
+                prompt,
+                repetitions,
+                session_id: motionSessionId
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+
+            if (response.status === 404) {
+                motionSessionId = null;
+            }
+
+            throw new Error(
+                error.detail || `HTTP ${response.status}`
+            );
+        }
+
+        const result = await response.json();
+
+        if (
+            !result.continued ||
+            result.session_id !== motionSessionId ||
+            !Array.isArray(result.joints) ||
+            result.joints.length === 0
+        ) {
+            throw new Error("Invalid continuation response.");
+        }
+
+        // Append ONLY new frames; backend removes history duplicates.
+        motion.joints.push(...result.joints);
+        motion.frames = motion.joints.length;
+        motion.prompt += " → " + prompt;
+
+        slider.max = motion.frames - 1;
+
+        document.getElementById("prompt").textContent =
+            `Sequence: ${motion.prompt}`;
+
+        // Keep the floor beneath the full animation.
+        let minHeight = Infinity;
+
+        for (const motionFrame of motion.joints) {
+            for (const joint of motionFrame) {
+                minHeight = Math.min(
+                    minHeight,
+                    convert(joint).y
+                );
+            }
+        }
+
+        grid.position.y = minHeight - 0.02;
+
+        // Resume from the join, not the beginning.
+        frame = previousFrameCount - 1;
+        drawFrame(frame);
+
+        playing = true;
+        lastFrameTime = performance.now();
+
+        document.getElementById("play").textContent = "Pause";
+
+        statusLabel.textContent =
+            `Added ${result.frames} frames. Total: ${motion.frames}.`;
+
+    } catch (error) {
+        console.error(error);
+
+        frame = previousFrame;
+        playing = previousPlaying;
+        drawFrame(frame);
+
+        statusLabel.textContent =
+            "Continuation failed: " + error.message;
+
+    } finally {
+        generateButton.disabled = false;
+        continueButton.disabled = !motionSessionId;
+    }
+};
+
+
+// ==================================================
+// LIVE_CONTINUOUS_V98
+// Buffered automatic DART continuation.
+//
+// Playback always has a clip to display. When DART
+// needs time to generate, the viewer repeats the
+// current clip with translation alignment and blending.
+// ==================================================
+
+const continuousCheckbox =
+    document.getElementById("continuousMode");
+
+const continuousSampleButton =
+    document.getElementById("continuousSample");
+
+const continuousStopButton =
+    document.getElementById("continuousStop");
+
+const continuousFollow =
+    document.getElementById("continuousFollow");
+
+const continuousStatus =
+    document.getElementById("continuousStatus");
+
+const originalGenerateAction = generateButton.onclick;
+const originalGenerateLabel = generateButton.textContent;
+
+let live = {
+    active: false,
+    online: false,
+    fetching: false,
+    epoch: 0,
+    clip: null,
+    position: 0,
+    offset: [0, 0, 0],
+    last: null,
+    seam: null,
+    ready: [],
+    nextPrompt: "",
+    totalFrames: 0,
+    repeats: 0,
+    fps: 30,
+    cameraRoot: null,
+    lastAction: ""
+};
+
+function copyPose(pose) {
+    return pose.map(joint => [...joint]);
+}
+
+function alignedPose(raw, offset) {
+    return raw.map(joint => [
+        joint[0] + offset[0],
+        joint[1] + offset[1],
+        joint[2] + offset[2]
+    ]);
+}
+
+function blendedPose(from, to, alpha) {
+    return to.map((joint, i) => joint.map(
+        (value, k) =>
+            from[i][k] * (1 - alpha) +
+            value * alpha
+    ));
+}
+
+function startLiveClip(clip) {
+    if (!clip || !Array.isArray(clip.frames)
+              || clip.frames.length === 0) {
+        return;
+    }
+
+    if (live.last) {
+        // Match the root position at the transition.
+        live.offset = [0, 1, 2].map(k =>
+            live.last[0][k] - clip.frames[0][0][k]
+        );
+
+        live.seam = copyPose(live.last);
+    } else {
+        live.offset = [0, 0, 0];
+        live.seam = null;
+    }
+
+    live.clip = clip;
+    live.position = 0;
+    live.lastAction = clip.prompt;
+}
+
+function renderLivePose(points) {
+    if (!motion) return;
+
+    // Use the same avatar system as the main viewer.
+    updateAvatarMeshes(points);
+
+    points.forEach((point, i) => {
+        spheres[i].position.copy(convert(point));
+    });
+
+    bones.forEach(([a, b], i) => {
+        const attribute =
+            lines[i].geometry.attributes.position;
+
+        const p1 = convert(points[a]);
+        const p2 = convert(points[b]);
+
+        attribute.setXYZ(0, p1.x, p1.y, p1.z);
+        attribute.setXYZ(1, p2.x, p2.y, p2.z);
+        attribute.needsUpdate = true;
+    });
+
+    // Move the camera with the character during walking.
+    const root = convert(points[0]);
+
+    if (continuousFollow.checked) {
+        if (live.cameraRoot) {
+            const dx = root.x - live.cameraRoot.x;
+            const dz = root.z - live.cameraRoot.z;
+
+            camera.position.x += dx;
+            camera.position.z += dz;
+            controls.target.x += dx;
+            controls.target.z += dz;
+        }
+
+        grid.position.x = root.x;
+        grid.position.z = root.z;
+    }
+
+    live.cameraRoot = root;
+
+    counter.textContent =
+        "Played: " + live.totalFrames +
+        " | New DART: " + (live.freshSegments || 0) +
+        " | Fallback cycles: " + live.repeats +
+        " | Skipped old: " + (live.staleSegments || 0);
+}
+
+function advanceLive() {
+    if (!live.active || !live.clip) return;
+
+    if (live.position >= live.clip.frames.length) {
+        const nextClip = live.ready.length
+            ? live.ready.shift()
+            : live.clip;
+
+        if (nextClip === live.clip) {
+            live.repeats += 1;
+        }
+
+        startLiveClip(nextClip);
+
+        // Request another segment when the queue has room.
+        if (live.online && !live.fetching &&
+            live.ready.length === 0) {
+            requestLiveContinuation();
+        }
+    }
+
+    const index = live.position;
+
+    let pose = alignedPose(
+        live.clip.frames[index],
+        live.offset
+    );
+
+    // Blend the first ten frames of every new clip.
+    // This reduces pose discontinuities at loop boundaries.
+    const blendCount = Math.min(
+        10, live.clip.frames.length
+    );
+
+    if (live.seam && index < blendCount) {
+        const alpha = (index + 1) / blendCount;
+        pose = blendedPose(live.seam, pose, alpha);
+    }
+
+    renderLivePose(pose);
+
+    live.last = copyPose(pose);
+    live.position += 1;
+    live.totalFrames += 1;
+}
+
+function stopLive(message = "Continuous Mode stopped.") {
+    live.epoch += 1;
+    live.active = false;
+    live.online = false;
+    live.ready = [];
+    live.fetching = false;
+    live.cameraRoot = null;
+
+    continuousCheckbox.checked = false;
+    continuousStopButton.disabled = true;
+    slider.disabled = false;
+
+    generateButton.textContent = originalGenerateLabel;
+
+    // An in-flight continuation may still finish on the
+    // server. Start a fresh session before manual requests.
+    motionSessionId = null;
+    continueButton.disabled = true;
+
+    continuousStatus.textContent = message;
+}
+
+function startLive(frames, prompt, online = false) {
+    if (!frames || frames.length === 0) {
+        continuousStatus.textContent =
+            "No motion frames available.";
+        return;
+    }
+
+    const epoch = live.epoch + 1;
+
+    live = {
+        active: true,
+        online,
+        fetching: false,
+        epoch,
+        clip: null,
+        position: 0,
+        offset: [0, 0, 0],
+        last: null,
+        seam: null,
+        ready: [],
+        nextPrompt: prompt,
+        totalFrames: 0,
+        repeats: 0,
+        fps: Number(motion.fps) || 30,
+        cameraRoot: null,
+        lastAction: prompt,
+        changeRevision: 0,
+        staleSegments: 0
+    };
+
+    // DART outputs Z-up coordinates.
+    axis.value = "z";
+
+    continuousCheckbox.checked = true;
+    continuousStopButton.disabled = false;
+
+    slider.disabled = true;
+    continueButton.disabled = true;
+
+    generateButton.textContent =
+        online ? "Change Action" : originalGenerateLabel;
+
+    playing = true;
+    lastFrameTime = performance.now();
+
+    document.getElementById("play").textContent =
+        "Pause";
+
+    startLiveClip({
+        frames,
+        prompt
+    });
+
+    advanceLive();
+
+    continuousStatus.textContent = online
+        ? "Live: generating future motion..."
+        : "Sample loop: repeating buffered movement";
+
+    if (online) {
+        requestLiveContinuation();
+    }
+}
+
+async function requestLiveContinuation() {
+    if (!live.active || !live.online ||
+        live.fetching || live.ready.length ||
+        !motionSessionId) {
+        return;
+    }
+
+    const epoch = live.epoch;
+    const prompt = live.nextPrompt;
+    const revision = live.changeRevision || 0;
+    const sessionId = motionSessionId;
+
+    const apiBase = document.getElementById("apiBase")
+        .value.trim().replace(/\/+$/, "");
+
+    const apiKey = document.getElementById("apiKey")
+        .value.trim();
+
+    if (!apiKey || apiBase !== motionSessionBase) {
+        live.online = false;
+        continuousStatus.textContent =
+            "Backend credentials changed. Looping saved motion.";
+        return;
+    }
+
+    live.fetching = true;
+
+    continuousStatus.textContent =
+        'Generating "' + prompt +
+        '" in background; playback continues...';
+
+    try {
+        // Longer fresh DART segments: 20 * 8 + 2 frames.
+        // Short segments make new prompts more responsive.
+        const repetitions = 8;
+
+        const response = await fetch(
+            apiBase + "/continue",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-API-Key": apiKey
+                },
+                body: JSON.stringify({
+                    prompt,
+                    repetitions,
+                    session_id: sessionId
+                })
+            }
+        );
+
+        if (!response.ok) {
+            const detail = await response.text();
+            throw new Error(
+                "HTTP " + response.status +
+                ": " + detail.slice(0, 180)
+            );
+        }
+
+        const result = await response.json();
+
+        // Ignore responses belonging to a stopped
+        // or replaced continuous session.
+        if (!live.active || live.epoch !== epoch) {
+            return;
+        }
+
+        if (
+            result.session_id !== motionSessionId ||
+            !result.continued ||
+            !Array.isArray(result.joints) ||
+            !result.joints.length
+        ) {
+            throw new Error(
+                "Unexpected continuation response."
+            );
+        }
+
+        // PRIORITY_SWITCH_V107
+        // The server has completed this request and advanced
+        // its motion state, but the user may now want a
+        // different action. Do not enqueue obsolete motion.
+        if (
+            (live.changeRevision || 0) !== revision ||
+            prompt !== live.nextPrompt
+        ) {
+            live.staleSegments =
+                (live.staleSegments || 0) + 1;
+
+            continuousStatus.textContent =
+                'Skipping old "' + prompt +
+                '" motion. Preparing "' +
+                live.nextPrompt + '"...';
+
+            return;
+        }
+
+        live.ready.push({
+            frames: result.joints,
+            prompt
+        });
+
+        live.freshSegments = (live.freshSegments || 0) + 1;
+
+        console.log(
+            "Fresh DART segment #" + live.freshSegments,
+            "Frames:", result.joints.length,
+            "Prompt:", prompt
+        );
+
+        continuousStatus.textContent =
+            'New "' + prompt +
+            '" motion ready — transitioning at clip boundary.';
+
+    } catch (error) {
+        console.error(error);
+
+        if (live.epoch === epoch) {
+            if ((live.changeRevision || 0) !== revision) {
+                // Old request failed after a new prompt arrived.
+                // Give the new command its own attempt.
+                continuousStatus.textContent =
+                    'Retrying latest action: "' +
+                    live.nextPrompt + '"';
+            } else {
+                live.online = false;
+                continuousStatus.textContent =
+                    "Generation unavailable. Continuing to " +
+                    "loop existing motion. " + error.message;
+            }
+        }
+    } finally {
+        if (live.epoch === epoch) {
+            live.fetching = false;
+
+            // An older request finished while the user was
+            // selecting a new action. Start the new one now.
+            if (
+                live.active &&
+                live.online &&
+                (live.changeRevision || 0) !== revision
+            ) {
+                requestLiveContinuation();
+            }
+        }
+    }
+}
+
+// Use the sample animation to verify playback
+// even when Colab's preview origin cannot call the API.
+continuousSampleButton.onclick = () => {
+    if (!motion || !Array.isArray(motion.joints)) {
+        continuousStatus.textContent =
+            "Sample motion is not loaded yet.";
+        return;
+    }
+
+    stopLive();
+    startLive(
+        motion.joints.map(copyPose),
+        motion.prompt || "Sample motion",
+        false
+    );
+};
+
+continuousStopButton.onclick = () => {
+    stopLive();
+};
+
+continuousCheckbox.onchange = () => {
+    if (!continuousCheckbox.checked) {
+        if (live.active) stopLive();
+        return;
+    }
+
+    continuousStatus.textContent =
+        "Enter a prompt and click Generate Motion " +
+        "to start live continuous mode.";
+};
+
+// Intercept Generate only when Continuous Mode
+// is selected. Normal generation stays unchanged.
+generateButton.onclick = async () => {
+    if (!continuousCheckbox.checked) {
+        if (live.active) stopLive();
+        return await originalGenerateAction();
+    }
+
+    const requestedPrompt =
+        document.getElementById("promptInput")
+        .value.trim();
+
+    if (!requestedPrompt) {
+        continuousStatus.textContent =
+            "Enter an action first.";
+        return;
+    }
+
+    // During a live session, Generate becomes Change Action.
+    // The character keeps moving during the request.
+    if (live.active && live.online) {
+
+        if (requestedPrompt === live.nextPrompt) {
+            continuousStatus.textContent =
+                'Already performing: "' +
+                requestedPrompt + '"';
+            return;
+        }
+
+        // Newest command takes priority.
+        live.nextPrompt = requestedPrompt;
+        live.changeRevision =
+            (live.changeRevision || 0) + 1;
+
+        // Never make the character play a previously
+        // queued segment of the old action.
+        const skipped = live.ready.length;
+        live.ready.length = 0;
+
+        continuousStatus.textContent =
+            'Switching to "' + requestedPrompt +
+            '" at the next short motion boundary...' +
+            (skipped ? ' Old queued motion removed.' : '');
+
+        // If the GPU is busy, the completion handler
+        // will submit this latest prompt immediately.
+        if (!live.fetching) {
+            requestLiveContinuation();
+        }
+
+        return;
+    }
+
+    stopLive();
+    continuousCheckbox.checked = true;
+
+    const previousMotion = motion;
+
+    // Temporarily use 8 primitives for initial Continuous
+    // Mode generation, then restore the visible selection.
+    // The existing manual Generate handler is unchanged.
+    const repetitionsSelect =
+        document.getElementById("repetitions");
+
+    const originalSelection = repetitionsSelect.value;
+    const temporaryOption = document.createElement("option");
+
+    temporaryOption.value = "8";
+    temporaryOption.textContent = "8";
+    repetitionsSelect.appendChild(temporaryOption);
+    repetitionsSelect.value = "8";
+
+    let generationTask;
+
+    try {
+        // The existing handler reads repetitions before
+        // its first await, so restoring the control now
+        // does not change this generation request.
+        generationTask = originalGenerateAction();
+    } finally {
+        repetitionsSelect.value = originalSelection;
+        temporaryOption.remove();
+    }
+
+    await generationTask;
+
+    if (
+        motion !== previousMotion &&
+        motionSessionId &&
+        Array.isArray(motion.joints)
+    ) {
+        startLive(
+            motion.joints,
+            requestedPrompt,
+            true
+        );
+    } else {
+        continuousStatus.textContent =
+            "Initial generation did not succeed.";
+    }
+};
+
+// Re-render the current continuous pose if appearance
+// or axis selection changes.
+avatarSelect.addEventListener("change", () => {
+    if (live.active && live.last) {
+        renderLivePose(live.last);
+    }
+});
+
+axis.addEventListener("change", () => {
+    if (live.active && live.last) {
+        renderLivePose(live.last);
+    }
+});
+
+// ==================================================
+// END LIVE_CONTINUOUS_V98
+// ==================================================
+
+
+function animate(time) {
+    requestAnimationFrame(animate);
+
+    if (
+        live.active &&
+        playing &&
+        time - lastFrameTime >= 1000 / live.fps
+    ) {
+        advanceLive();
+        lastFrameTime = time;
+
+    } else if (
+        !live.active &&
+        motion &&
+        playing &&
+        time - lastFrameTime >= 1000 / motion.fps
+    ) {
+        frame = (frame + 1) % motion.frames;
+        drawFrame(frame);
+        lastFrameTime = time;
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+loadMotion().catch(error => {
+    document.getElementById("prompt").textContent = error.message;
+    console.error(error);
+});
+
+window.addEventListener("resize", () => {
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+});
+
+animate(0);
+</script>
+</body>
+</html>
