@@ -1,0 +1,11 @@
+date,gpu,trial,endpoint,prompt,repetitions,frames,joint_count,playback_fps,api_round_trip_seconds,success,session_present
+2026-11-19,NVIDIA A40,1,/generate,walk forward,5,42,22,30,0.499,true,true
+2026-11-19,NVIDIA A40,1,/continue,turn left,5,40,22,30,0.522,true,true
+2026-11-19,NVIDIA A40,2,/generate,walk forward,5,42,22,30,0.513,true,true
+2026-11-19,NVIDIA A40,2,/continue,turn left,5,40,22,30,0.559,true,true
+2026-11-19,NVIDIA A40,3,/generate,walk forward,5,42,22,30,0.546,true,true
+2026-11-19,NVIDIA A40,3,/continue,turn left,5,40,22,30,0.579,true,true
+2026-11-19,NVIDIA A40,4,/generate,walk forward,5,42,22,30,0.552,true,true
+2026-11-19,NVIDIA A40,4,/continue,turn left,5,40,22,30,0.581,true,true
+2026-11-19,NVIDIA A40,5,/generate,walk forward,5,42,22,30,0.498,true,true
+2026-11-19,NVIDIA A40,5,/continue,turn left,5,40,22,30,0.495,true,true
