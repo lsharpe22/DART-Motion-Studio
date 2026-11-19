@@ -2,6 +2,8 @@
 set -euo pipefail
 DART_HOME="${DART_HOME:-/content/DART}"
 DART_PYTHON="${DART_PYTHON:-/content/dart-env/bin/python}"
+# Make the restored Conda environment find its Python standard library.
+export PYTHONHOME="${PYTHONHOME:-$(dirname "$(dirname "$DART_PYTHON")")}"
 LOG_DIR="$DART_HOME/motion_service/outputs/service_logs"
 mkdir -p "$LOG_DIR"
 [[ -n "${DART_API_KEY:-}" ]] || { echo 'Set DART_API_KEY privately before launching.' >&2; exit 1; }
