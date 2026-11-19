@@ -1089,6 +1089,15 @@ function updateLiveHumanV3(jointData) {
     // Parent correction prevents inheriting full limb movement twice.
     // Restrict joint angles and strength to avoid exploding limbs.
     for (const name of Object.keys(balancedHumanSegments)) {
+        const skipBones = new Set([
+            "spine",
+            "spine1",
+            "spine2",
+            "neck"
+        ]);
+
+        if (skipBones.has(name)) continue;
+
         const bone = liveHumanBones.get(name);
         const rest = bone && liveHumanRest.get(bone);
         if (!bone || !rest) continue;
