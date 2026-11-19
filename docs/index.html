@@ -1090,10 +1090,8 @@ function updateLiveHumanV3(jointData) {
     // Restrict joint angles and strength to avoid exploding limbs.
     for (const name of Object.keys(balancedHumanSegments)) {
         const skipBones = new Set([
-            "spine",
             "spine1",
-            "spine2",
-            "neck"
+            "spine2"
         ]);
 
         if (skipBones.has(name)) continue;
